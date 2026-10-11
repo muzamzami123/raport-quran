@@ -24,7 +24,7 @@ export default function AdminLayout({
         
         {/* Page Content - scrollable independently */}
         <div className="flex-1 flex flex-col overflow-auto bg-[#FFF6A9]/5 dark:bg-zinc-950">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col">
             {children}
           </div>
           <Footer />

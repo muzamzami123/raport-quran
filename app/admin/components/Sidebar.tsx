@@ -1,4 +1,7 @@
+"use client";
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   Book, 
   LayoutDashboard, 
@@ -17,6 +20,23 @@ export default function Sidebar({
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const pathname = usePathname();
+
+  const navItems = [
+    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+    { href: '/admin/santri', label: 'Data Santri', icon: Users, exact: false },
+    { href: '/admin/guru', label: 'Data Guru', icon: UserCheck, exact: false },
+    { href: '/admin/kelas', label: 'Data Kelas', icon: Layers, exact: false },
+    { href: '/admin/settings', label: 'Pengaturan', icon: Settings, exact: false },
+  ];
+
+  const isItemActive = (href: string, exact: boolean) => {
+    if (exact) {
+      return pathname === href;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   return (
     <>
       {/* Mobile Sidebar Overlay */}
@@ -55,26 +75,25 @@ export default function Sidebar({
           <div className="px-6 mb-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
             Menu Utama
           </div>
-          <Link href="/admin" onClick={onClose} className="flex items-center gap-3 px-6 py-3 bg-[#FFF6A9]/40 dark:bg-zinc-800/50 border-l-2 border-[#DE7272] text-zinc-900 dark:text-white font-medium transition-colors">
-            <LayoutDashboard className="w-5 h-5 text-[#DE7272]" />
-            Dashboard
-          </Link>
-          <Link href="/admin/santri" onClick={onClose} className="flex items-center gap-3 px-6 py-3 border-l-2 border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-[#FFF6A9]/20 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
-            <Users className="w-5 h-5" />
-            Data Santri
-          </Link>
-          <Link href="/admin/guru" onClick={onClose} className="flex items-center gap-3 px-6 py-3 border-l-2 border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-[#FFF6A9]/20 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
-            <UserCheck className="w-5 h-5" />
-            Data Guru
-          </Link>
-          <Link href="/admin/kelas" onClick={onClose} className="flex items-center gap-3 px-6 py-3 border-l-2 border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-[#FFF6A9]/20 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
-            <Layers className="w-5 h-5" />
-            Data Kelas
-          </Link>
-          <Link href="/admin/settings" onClick={onClose} className="flex items-center gap-3 px-6 py-3 border-l-2 border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-[#FFF6A9]/20 hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
-            <Settings className="w-5 h-5" />
-            Pengaturan
-          </Link>
+          {navItems.map((item) => {
+            const active = isItemActive(item.href, item.exact);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`flex items-center gap-3 px-6 py-3 font-medium transition-colors border-l-2 ${
+                  active
+                    ? 'bg-[#FFF6A9]/40 dark:bg-zinc-800/60 border-[#DE7272] text-zinc-900 dark:text-white font-semibold'
+                    : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:bg-[#FFF6A9]/20 hover:text-zinc-900 dark:hover:text-white'
+                }`}
+              >
+                <Icon className={`w-5 h-5 transition-colors ${active ? 'text-[#DE7272]' : 'text-zinc-400 dark:text-zinc-500'}`} />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         
         <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
