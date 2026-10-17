@@ -13,7 +13,7 @@ export default function AdminLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="h-screen bg-[#FFF6A9]/10 dark:bg-zinc-950 flex overflow-hidden">
+    <div className="h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex overflow-hidden antialiased">
       <Sidebar 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
@@ -23,7 +23,7 @@ export default function AdminLayout({
         <Topbar onOpenSidebar={() => setIsSidebarOpen(true)} />
         
         {/* Page Content - scrollable independently */}
-        <div className="flex-1 flex flex-col overflow-auto bg-[#FFF6A9]/5 dark:bg-zinc-950">
+        <div className="flex-1 flex flex-col overflow-y-auto bg-zinc-50 dark:bg-zinc-950">
           <div className="flex-1 flex flex-col">
             {children}
           </div>
