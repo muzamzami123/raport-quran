@@ -29,3 +29,64 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+
+.font-arabic {
+  font-family: var(--font-amiri), var(--font-scheherazade), "Arabic Typesetting", "Traditional Arabic", serif;
+}
+
+@page {
+  size: legal portrait;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-modal-wrapper {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .print-modal-card {
+    max-width: none !important;
+    max-height: none !important;
+    width: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  #printable-raport {
+    position: static !important;
+    width: 100% !important;
+    border: none !important;
+    padding: 12mm 16mm !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+}

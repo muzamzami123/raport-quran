@@ -11,10 +11,7 @@ export default function Footer() {
       <div className="flex items-center gap-3 text-[11px]">
         <span>Pesantren Ilmu Al-Qur&apos;an</span>
         <span className="text-zinc-300 dark:text-zinc-700">•</span>
-        <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          Server Terhubung
-        </span>
+
       </div>
     </footer>
   );

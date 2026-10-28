@@ -1,7 +1,8 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,8 +12,7 @@ import {
   LogOut,
   X,
   BookOpen,
-  ArrowUpRight,
-  ShieldCheck
+  ArrowUpRight
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,6 +22,19 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    onClose();
+    try {
+      localStorage.removeItem('admin_user');
+      document.cookie = 'admin_session=; path=/; max-age=0';
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
+    router.push('/login');
+  };
 
   const menuSections = [
     {
@@ -34,8 +47,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       title: "DATA & HALAQAH",
       items: [
         { href: '/admin/santri', label: 'Data Santri', icon: Users, exact: false },
-        { href: '/admin/guru', label: 'Data Asatidz & Guru', icon: UserCheck, exact: false },
-        { href: '/admin/kelas', label: 'Halaqah & Kelas', icon: Layers, exact: false },
+        { href: '/admin/guru', label: 'Data Guru', icon: UserCheck, exact: false },
+        { href: '/admin/kelas', label: 'Kelas', icon: Layers, exact: false },
       ]
     },
     {
@@ -80,9 +93,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             className="flex items-center gap-3 group" 
             onClick={onClose}
           >
-            <div className="w-9 h-9 rounded-md bg-[#086288] flex items-center justify-center text-[#FFEFC4] shadow-xs">
-              <BookOpen className="w-5 h-5 text-[#FFEFC4]" />
-            </div>
+            <Image
+              src="/logo-piq.png"
+              alt="Logo Pesantren Ilmu Al-Qur'an"
+              width={36}
+              height={36}
+              className="w-9 h-9 object-contain shrink-0"
+            />
             <div className="flex flex-col">
               <span className="font-bold text-sm tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                 SIMRQ
@@ -172,14 +189,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           </div>
 
-          <Link 
-            href="/login" 
-            onClick={onClose} 
-            className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/50 w-full"
+          <button 
+            type="button" 
+            onClick={handleLogout} 
+            className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-900/50 w-full cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Keluar Sistem</span>
-          </Link>
+          </button>
         </div>
       </aside>
     </>

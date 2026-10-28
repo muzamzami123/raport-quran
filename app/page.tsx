@@ -1,474 +1,202 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
 import {
-  BookOpen,
-  Users,
   CheckCircle2,
   ChevronRight,
   ArrowLeft,
   ArrowRight,
-  RotateCcw,
-  Save,
-  AlertTriangle,
   Layers,
-  Clock,
   Plus,
-  Minus,
-  FileText,
-  School,
-  Bookmark,
-  GraduationCap,
-  Search,
-  Calendar,
-  Printer
+  Pencil,
+  Trash2
 } from "lucide-react";
+import {
+  StepType,
+  ErrorCounters,
+  SantriRecord,
+  UjianSession,
+  ClassItem,
+  EMPTY_ERROR_COUNTERS,
+  getPredikat,
+  createDefaultUjianList,
+  categoriesData,
+  initialClassesData
+} from "./components/evaluationData";
+import { StudentsStepView, EvaluationFormView } from "./components/EvaluationViews";
 
-// ==========================================
-// DATA DEFINITIONS & INITIAL DUMMY RECORDS
-// ==========================================
-
-interface Category {
-  id: string;
-  name: string;
-  arabic: string;
-  description: string;
-  totalClasses: number;
-  totalStudents: number;
-  focus: string;
-}
-
-interface SantriRecord {
-  id: string;
-  nis: string;
-  nama: string;
-  status: "Belum Setor" | "Sedang Menyimak" | "Selesai";
-  surahDibaca: string;
-  totalKesalahan: number;
-  nilai: number | null;
-  predikat: string | null;
+interface SavedEvaluationItem {
+  classId: string;
+  examId: string;
+  namaUjian?: string;
+  tanggalUjian?: string;
+  santriId: string;
+  status?: "Belum Setor" | "Sedang Menyimak" | "Selesai";
+  surahDibaca?: string;
+  totalKesalahan?: number;
+  nilai?: number | null;
+  predikat?: string | null;
   catatanGuru?: string;
-  errors: {
-    makhorij: number;
-    shifat: number;
-    mad: number;
-    nunMim: number;
-    waqaf: number;
-    lahnJali: number;
+  errors?: ErrorCounters;
+}
+
+interface DbKelasItem {
+  id: string;
+  kode?: string;
+  nama: string;
+  program?: string;
+  wali?: string;
+  waliList?: string[];
+  ruangan?: string;
+  materiTerakhir?: string;
+  ujianSessions?: { id: string; namaUjian: string; tanggalUjian: string }[];
+  status?: string;
+}
+
+const toSlug = (str: string) =>
+  (str || "")
+    .toLowerCase()
+    .trim()
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "item";
+
+const getClassSlug = (clsList: ClassItem[], cls: ClassItem) => {
+  const base = toSlug(cls.name);
+  const duplicates = clsList.filter(
+    (c) => c.categoryId === cls.categoryId && toSlug(c.name) === base
+  );
+  return duplicates.length > 1 ? `${base}-${toSlug(cls.id)}` : base;
+};
+
+const getExamSlug = (ujianList: UjianSession[], ujian: UjianSession) => {
+  const base = toSlug(ujian.namaUjian);
+  const duplicates = ujianList.filter((u) => toSlug(u.namaUjian) === base);
+  if (duplicates.length > 1) {
+    const shortSuffix = ujian.id.split("-").pop() || ujian.id;
+    return `${base}-${toSlug(shortSuffix)}`;
+  }
+  return base;
+};
+
+const getSantriSlug = (santriList: SantriRecord[], santri: SantriRecord) => {
+  const base = toSlug(santri.nama);
+  const duplicates = santriList.filter((s) => toSlug(s.nama) === base);
+  if (duplicates.length > 1) {
+    const suffix =
+      santri.nis && santri.nis !== "-" ? santri.nis : santri.id.slice(-4);
+    return `${base}-${toSlug(suffix)}`;
+  }
+  return base;
+};
+
+const formatTanggalIndo = (dateStr: string): string => {
+  if (!dateStr) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+  }
+  return dateStr;
+};
+
+const toInputDateFormat = (dateStr: string): string => {
+  if (!dateStr) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+  const months: Record<string, string> = {
+    januari: "01", februari: "02", maret: "03", april: "04", mei: "05", juni: "06",
+    juli: "07", agustus: "08", september: "09", oktober: "10", november: "11", desember: "12",
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", agu: "08", sep: "09", okt: "10", oct: "10", nov: "11", des: "12", dec: "12"
   };
-}
 
-interface UjianSession {
+  const parts = dateStr.trim().split(/\s+/);
+  if (parts.length >= 3) {
+    const day = parts[0].padStart(2, "0");
+    const monthName = parts[1].toLowerCase();
+    const month = months[monthName] || "01";
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  return "";
+};
+
+const getInitialStepFromPath = (path: string): StepType => {
+  if (!path || path === "/" || !path.startsWith("/program")) return "welcome";
+  const segs = path.replace(/^\/program\/?/, "").split("/").filter(Boolean);
+  if (segs.length === 0) return "category";
+  if (segs.length === 1) return "class";
+  if (segs.length === 2) return "exams";
+  if (segs.length === 3) return "students";
+  return "evaluation";
+};
+
+interface DbSantriItem {
   id: string;
-  namaUjian: string;
-  tanggalUjian: string;
-  santriList: SantriRecord[];
+  nis?: string;
+  nama: string;
+  jenjang?: string;
+  kelas?: string;
 }
-
-interface ClassItem {
-  id: string;
-  categoryId: string;
-  name: string;
-  wali: string;
-  ruangan: string;
-  target: string;
-  santriList: SantriRecord[];
-  ujianList?: UjianSession[];
-}
-
-const createDefaultUjianList = (clsId: string, baseSantri: SantriRecord[]): UjianSession[] => [
-  {
-    id: `${clsId}-u1`,
-    namaUjian: "Tasmi' Ujian Utama",
-    tanggalUjian: "17 Oktober 2026",
-    santriList: baseSantri.map((s) => ({ ...s }))
-  },
-  {
-    id: `${clsId}-u2`,
-    namaUjian: "Evaluasi Tahsin & Tartil",
-    tanggalUjian: "10 Oktober 2026",
-    santriList: baseSantri.map((s, idx) => ({
-      ...s,
-      status: "Selesai" as const,
-      nilai: 92 + (idx % 6),
-      predikat: idx % 2 === 0 ? "Mumtaz" : "Jayyid Jiddan",
-      totalKesalahan: idx % 2,
-      surahDibaca: s.surahDibaca || "Juz 30 (Al-A'la s.d An-Nas)"
-    }))
-  },
-  {
-    id: `${clsId}-u3`,
-    namaUjian: "Ujian Murojaah Sab'i",
-    tanggalUjian: "03 Oktober 2026",
-    santriList: baseSantri.map((s, idx) => ({
-      ...s,
-      status: "Selesai" as const,
-      nilai: 88 + (idx % 8),
-      predikat: "Jayyid Jiddan",
-      totalKesalahan: 2,
-      surahDibaca: s.surahDibaca || "Juz 29 (Al-Mulk s.d Al-Mursalat)"
-    }))
-  }
-];
-
-const categoriesData: Category[] = [
-  {
-    id: "murottal",
-    name: "Murottal",
-    arabic: "الترتيل والتلاوة",
-    description: "Bimbingan bacaan Al-Qur'an santri dengan tartil, fasih, serta ketepatan makhorijul huruf dan kaidah tajwid dasar hingga lanjutan.",
-    totalClasses: 3,
-    totalStudents: 10,
-    focus: "Tartil & Tajwid"
-  },
-  {
-    id: "murojaah",
-    name: "Murojaah",
-    arabic: "المراجعة والتسميع",
-    description: "Pengulangan juz lama, tasmi' bil ghoib sekali duduk (1 s.d 5 juz), serta pengujian daya rekat dan kelancaran ingatan santri.",
-    totalClasses: 2,
-    totalStudents: 6,
-    focus: "Daya Rekat & Kelancaran"
-  },
-  {
-    id: "tafsir",
-    name: "Tafsir",
-    arabic: "التفسير وتدبر القرآن",
-    description: "Pemahaman makna ayat, asbabun nuzul, kaidah waqaf ibtida' berdasar makna, serta pembinaan adab hamalatul Qur'an.",
-    totalClasses: 2,
-    totalStudents: 4,
-    focus: "Waqaf, Ibtida' & Makna"
-  }
-];
-
-const initialClassesData: ClassItem[] = [
-  // MUROTTAL CLASSES
-  {
-    id: "murottal-1",
-    categoryId: "murottal",
-    name: "Kelas 1A - Murottal",
-    wali: "Ustadz Ahmad",
-    ruangan: "Gedung A-01 • Serambi Barat",
-    target: "Pemberantasan Lahn Jali & Makhraj Halqiyah",
-    santriList: [
-      {
-        id: "s-1",
-        nis: "RQ-24-001",
-        nama: "Ahmad Zaki Al-Faruq",
-        status: "Selesai",
-        surahDibaca: "Surah Al-Fatihah & Al-Baqarah: 1-5",
-        totalKesalahan: 1,
-        nilai: 94,
-        predikat: "Jayyid Jiddan",
-        catatanGuru: "Makhraj Ain sudah sangat membaik, perhatikan desis huruf Shad di ayat 5.",
-        errors: { makhorij: 1, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-2",
-        nis: "RQ-24-002",
-        nama: "Bilal bin Rabah Pratama",
-        status: "Belum Setor",
-        surahDibaca: "Surah An-Naba': 1-15",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-3",
-        nis: "RQ-24-003",
-        nama: "Zaid bin Tsabit",
-        status: "Belum Setor",
-        surahDibaca: "Surah An-Naziat: 1-20",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-4",
-        nis: "RQ-24-004",
-        nama: "Fatimah Az-Zahra",
-        status: "Selesai",
-        surahDibaca: "Surah Al-Mulk: 1-12",
-        totalKesalahan: 0,
-        nilai: 98,
-        predikat: "Mumtaz",
-        catatanGuru: "Maa Syaa Allah bacaan sangat tartil, makhraj fasih dan konsisten.",
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  },
-  {
-    id: "murottal-2",
-    categoryId: "murottal",
-    name: "Kelas 2A - Murottal",
-    wali: "Ustadz Umar",
-    ruangan: "Gedung A-03 • Ruang Qiraat",
-    target: "Pematangan Shifat Huruf & Ghunnah",
-    santriList: [
-      {
-        id: "s-5",
-        nis: "RQ-24-005",
-        nama: "Ali Zainal Abidin",
-        status: "Belum Setor",
-        surahDibaca: "Surah Al-Waqiah: 1-30",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-6",
-        nis: "RQ-24-006",
-        nama: "Muhammad Rayhan Al-Ghifari",
-        status: "Belum Setor",
-        surahDibaca: "Surah Ar-Rahman: 1-25",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  },
-  {
-    id: "murottal-3",
-    categoryId: "murottal",
-    name: "Kelas 5A - Murottal",
-    wali: "Ustadz Zulkifli",
-    ruangan: "Gedung B-02 • Paviliun Tartil",
-    target: "Ahkamul Mad wal Qashr & Waqaf Ibtida'",
-    santriList: [
-      {
-        id: "s-7",
-        nis: "RQ-24-007",
-        nama: "Aisyah Putri Nabila",
-        status: "Belum Setor",
-        surahDibaca: "Surah Yasin: 1-20",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-8",
-        nis: "RQ-24-008",
-        nama: "Muhammad Ziyad Al-Farisi",
-        status: "Selesai",
-        surahDibaca: "Surah Al-Insyiqaq: 1-25",
-        totalKesalahan: 1,
-        nilai: 95,
-        predikat: "Mumtaz",
-        catatanGuru: "Setoran tartil lancar. Sedikit diperbaiki mad wajib di ayat 16.",
-        errors: { makhorij: 0, shifat: 0, mad: 1, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-9",
-        nis: "RQ-24-009",
-        nama: "Salman Al-Farisi",
-        status: "Belum Setor",
-        surahDibaca: "Surah Al-Buruj: 1-22",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-10",
-        nis: "RQ-24-010",
-        nama: "Khalid bin Walid S.",
-        status: "Belum Setor",
-        surahDibaca: "Surah Al-A'la: 1-19",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  },
-
-  // MUROJAAH CLASSES
-  {
-    id: "murojaah-1",
-    categoryId: "murojaah",
-    name: "Kelas 1B - Murojaah",
-    wali: "Ustadzah Fatimah",
-    ruangan: "Gedung A-02 • Aula Murojaah",
-    target: "Kelancaran Murojaah 5 Juz Sekali Majelis",
-    santriList: [
-      {
-        id: "s-201",
-        nis: "RQ-24-201",
-        nama: "Maryam Khadijah",
-        status: "Belum Setor",
-        surahDibaca: "Juz 1 (Al-Fatihah s.d Al-Baqarah 141)",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-202",
-        nis: "RQ-24-202",
-        nama: "Ibrahim Ali Basayev",
-        status: "Belum Setor",
-        surahDibaca: "Surah Ali 'Imran: 1-15",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-203",
-        nis: "RQ-24-203",
-        nama: "Muadz bin Jabal Nur",
-        status: "Belum Setor",
-        surahDibaca: "Surah An-Nisa: 1-10",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  },
-  {
-    id: "murojaah-2",
-    categoryId: "murojaah",
-    name: "Kelas 3A - Murojaah",
-    wali: "Ustadzah Maryam",
-    ruangan: "Gedung B-01 • Ruang Ujian Tasmi'",
-    target: "Syahadah Tasmi' Bil Ghoib 1 Juz",
-    santriList: [
-      {
-        id: "s-204",
-        nis: "RQ-24-204",
-        nama: "Hafshah binti Umar",
-        status: "Belum Setor",
-        surahDibaca: "Juz 30 Lengkap",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-205",
-        nis: "RQ-24-205",
-        nama: "Usamah bin Zaid Al-Banjari",
-        status: "Belum Setor",
-        surahDibaca: "Surah Al-An'am: 1-20",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-206",
-        nis: "RQ-24-206",
-        nama: "Zubair bin Awwam",
-        status: "Belum Setor",
-        surahDibaca: "Surah Yusuf: 1-25",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  },
-
-  // TAFSIR CLASSES
-  {
-    id: "tafsir-1",
-    categoryId: "tafsir",
-    name: "Kelas 6A - Tafsir",
-    wali: "Ustadz Hasan Basri",
-    ruangan: "Gedung C-01 • Aula Utama Pesantren",
-    target: "Pemahaman Makna & Waqaf Ibtida' Juz 30",
-    santriList: [
-      {
-        id: "s-301",
-        nis: "RQ-24-301",
-        nama: "Ruqayyah binti Muhammad",
-        status: "Belum Setor",
-        surahDibaca: "Surah An-Naba' & An-Naziat",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-302",
-        nis: "RQ-24-302",
-        nama: "Abdullah bin Mas'ud Al-Anshari",
-        status: "Belum Setor",
-        surahDibaca: "Surah At-Thariq: 1-17",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  },
-  {
-    id: "tafsir-2",
-    categoryId: "tafsir",
-    name: "Kelas Tafsir & Tadabbur Tematik",
-    wali: "Ustadz Hilman Hakim, Lc",
-    ruangan: "Gedung C-02 • Perpustakaan Al-Qur'an",
-    target: "Kajian Tematik Adab Hamalatul Qur'an",
-    santriList: [
-      {
-        id: "s-303",
-        nis: "RQ-24-303",
-        nama: "Ahmad Fauzan Mubarok",
-        status: "Belum Setor",
-        surahDibaca: "Surah Al-Kahfi: 1-15",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      },
-      {
-        id: "s-304",
-        nis: "RQ-24-304",
-        nama: "Syifa Khairunnisa",
-        status: "Belum Setor",
-        surahDibaca: "Surah Luqman: 12-19",
-        totalKesalahan: 0,
-        nilai: null,
-        predikat: null,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 }
-      }
-    ]
-  }
-];
 
 export default function HomeGuruEvaluationPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const loadedEvalKeyRef = useRef<string | null>(null);
+
   // Navigation Steps:
-  // "welcome" -> Sambutan Ahlan Wa Sahlan
-  // "category" -> Pilih Program (Murottal, Murojaah, Tafsir)
-  // "class" -> Pilih Kelas / Halaqah
-  // "exams" -> Tabel Ujian (No, tanggal ujian, santri selesai, santri belum, aksi Masuk)
-  // "students" -> Tabel Daftar Santri pada Ujian Terpilih
-  // "evaluation" -> Lembar Pencatatan Kesalahan Santri
-  const [currentStep, setCurrentStep] = useState<"welcome" | "category" | "class" | "exams" | "students" | "evaluation">("welcome");
+  // "welcome" -> /
+  // "category" -> /program
+  // "class" -> /program/[kategori]
+  // "exams" -> /program/[kategori]/[kelas]
+  // "students" -> /program/[kategori]/[kelas]/[ujian]
+  // "evaluation" -> /program/[kategori]/[kelas]/[ujian]/[santri]
+  const [currentStep, setCurrentStep] = useState<StepType>(() =>
+    getInitialStepFromPath(pathname)
+  );
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
   const [searchSantri, setSearchSantri] = useState("");
   const [printingSantri, setPrintingSantri] = useState<SantriRecord | null>(null);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
+  const [showClassSkeleton, setShowClassSkeleton] = useState(false);
 
   // Modal Tambah Jadwal Ujian
   const [isAddUjianOpen, setIsAddUjianOpen] = useState(false);
   const [newTanggalUjian, setNewTanggalUjian] = useState("");
   const [newNamaUjian, setNewNamaUjian] = useState("");
 
-  // Class & Student Data State with Default Ujian Lists
-  const [classesList, setClassesList] = useState<ClassItem[]>(() =>
-    initialClassesData.map((cls) => ({
-      ...cls,
-      ujianList: createDefaultUjianList(cls.id, cls.santriList)
-    }))
-  );
+  // Modal Edit Jadwal Ujian
+  const [isEditUjianOpen, setIsEditUjianOpen] = useState(false);
+  const [editUjianId, setEditUjianId] = useState("");
+  const [editNamaUjian, setEditNamaUjian] = useState("");
+  const [editTanggalUjian, setEditTanggalUjian] = useState("");
+  const [isSavingEditUjian, setIsSavingEditUjian] = useState(false);
+
+  // Modal Konfirmasi Hapus Jadwal Ujian
+  const [isDeleteUjianOpen, setIsDeleteUjianOpen] = useState(false);
+  const [deleteUjianSession, setDeleteUjianSession] = useState<UjianSession | null>(null);
+  const [isDeletingUjian, setIsDeletingUjian] = useState(false);
+
+  // Class & Student Data State synced from MongoDB
+  const [classesList, setClassesList] = useState<ClassItem[]>([]);
   const [activeSantriId, setActiveSantriId] = useState<string | null>(null);
 
   // Active Evaluation Form State (for the chosen student)
@@ -476,25 +204,357 @@ export default function HomeGuruEvaluationPage() {
   const [tipeSesi, setTipeSesi] = useState("Tasmi' Ujian Resmi");
   const [catatanUstadz, setCatatanUstadz] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [kepalaMadrasah, setKepalaMadrasah] = useState<string>("A. Arisy Habibullah");
+  const [semesterLabel, setSemesterLabel] = useState<string>("Ganjil 2026-2027");
+  const [classMateriInput, setClassMateriInput] = useState<string>("");
+  const [isSavingClassMateri, setIsSavingClassMateri] = useState<boolean>(false);
+  const [mobileExamStepTab, setMobileExamStepTab] = useState<"santri" | "ujian">("santri");
+
+  // Hanya tampilkan skeleton jika pemuatan data memang membutuhkan waktu (debounce 200ms)
+  // Jika respons cepat, langsung tampilkan konten tanpa ada kedipan/flash skeleton
+  useEffect(() => {
+    if (isLoadingClasses) {
+      const timer = setTimeout(() => {
+        setShowClassSkeleton(true);
+      }, 200);
+      return () => clearTimeout(timer);
+    } else {
+      setShowClassSkeleton(false);
+    }
+  }, [isLoadingClasses]);
+
+  // Sync Kelas, Santri, Ujian evaluations, and Settings from MongoDB
+  useEffect(() => {
+    async function loadDatabaseRecords() {
+      try {
+        setIsLoadingClasses(true);
+        const [resKelas, resSantri, resUjian, resSettings] = await Promise.all([
+          fetch("/api/kelas", { cache: "no-store" }),
+          fetch("/api/santri", { cache: "no-store" }),
+          fetch("/api/ujian", { cache: "no-store" }),
+          fetch("/api/settings", { cache: "no-store" })
+        ]);
+
+        const [jsonKelas, jsonSantri, jsonUjian, jsonSettings] = await Promise.all([
+          resKelas.json(),
+          resSantri.json(),
+          resUjian.json(),
+          resSettings.json()
+        ]);
+
+        if (jsonSettings?.success && jsonSettings?.data) {
+          if (jsonSettings.data.lembaga?.mudir) {
+            setKepalaMadrasah(jsonSettings.data.lembaga.mudir);
+          }
+          if (jsonSettings.data.akademik) {
+            const sem = jsonSettings.data.akademik.semester || "Ganjil";
+            const ta = (jsonSettings.data.akademik.tahunAjaran || "2026/2027").replace("/", "-");
+            setSemesterLabel(`${sem} ${ta}`);
+          }
+        }
+
+        const dbKelasList: DbKelasItem[] =
+          jsonKelas.success && Array.isArray(jsonKelas.data) ? jsonKelas.data : [];
+        const dbSantriList: DbSantriItem[] =
+          jsonSantri.success && Array.isArray(jsonSantri.data) ? jsonSantri.data : [];
+        const dbUjianList: SavedEvaluationItem[] =
+          jsonUjian.success && Array.isArray(jsonUjian.data) ? jsonUjian.data : [];
+
+        const evalMap = new Map<string, SavedEvaluationItem>();
+        dbUjianList.forEach((item) => {
+          evalMap.set(`${item.classId}_${item.examId}_${item.santriId}`, item);
+        });
+
+        const normalizeClassName = (str: string) =>
+          (str || "")
+            .toLowerCase()
+            .replace(/\b(kelas|halaqah|rombel)\b/g, "")
+            .replace(/[^a-z0-9]/g, "");
+
+        const mappedClasses: ClassItem[] = dbKelasList.map((k) => {
+          const rawProg = (k.program || "").toLowerCase();
+          const lowerNama = (k.nama || "").toLowerCase();
+          const categoryId =
+            rawProg === "murojaah" || lowerNama.includes("murojaah")
+              ? "murojaah"
+              : rawProg === "tafsir" || lowerNama.includes("tafsir")
+              ? "tafsir"
+              : "murottal";
+
+          const normKelasNama = normalizeClassName(k.nama);
+          const normKelasKode = k.kode ? normalizeClassName(k.kode) : "";
+          const classMateri = k.materiTerakhir || "";
+
+          // Cari santri dari database yang terdaftar di kelas ini
+          const matchedSantri: SantriRecord[] = dbSantriList
+            .filter((s) => {
+              if (!s.kelas || s.kelas.trim() === "-" || s.kelas.trim() === "") return false;
+              if (s.kelas.trim().toLowerCase() === k.nama.trim().toLowerCase()) return true;
+              const normSantriKelas = normalizeClassName(s.kelas);
+              if (!normSantriKelas) return false;
+              if (normSantriKelas === normKelasNama) return true;
+              if (normKelasKode && normSantriKelas === normKelasKode) return true;
+              return false;
+            })
+            .map((s) => ({
+              id: String(s.id),
+              nis: s.nis || "-",
+              nama: s.nama,
+              jenjang: s.jenjang ? s.jenjang.replace(/^Kelas\s*/i, "").trim() : "1",
+              status: "Belum Setor" as const,
+              surahDibaca: classMateri,
+              totalKesalahan: 0,
+              nilai: null,
+              predikat: null,
+              catatanGuru: "",
+              errors: { ...EMPTY_ERROR_COUNTERS }
+            }));
+
+          const rawWaliList =
+            Array.isArray(k.waliList) && k.waliList.length > 0
+              ? k.waliList.filter(Boolean)
+              : k.wali && k.wali !== "-"
+              ? k.wali
+                  .split(/\s*[|•]\s*/)
+                  .map((w) => w.trim())
+                  .filter(Boolean)
+              : [];
+
+          const parsedWaliList = rawWaliList.map((w) =>
+            w.toLowerCase().includes("arif") ? "Ust Rendra Maulana Akbar" : w
+          );
+
+          const waliDisplay =
+            parsedWaliList.length > 0 ? parsedWaliList.join(", ") : k.wali || "-";
+
+          // Ambil sesi jadwal ujian: utamakan dari ujianSessions yang tersimpan di MongoDB
+          let defaultSessions: UjianSession[] = [];
+          if (Array.isArray(k.ujianSessions) && k.ujianSessions.length > 0) {
+            defaultSessions = k.ujianSessions.map((sess: any) => ({
+              id: sess.id,
+              namaUjian: sess.namaUjian || "Ujian Tilawah",
+              tanggalUjian: sess.tanggalUjian || "-",
+              santriList: matchedSantri.map((s) => ({ ...s }))
+            }));
+          } else if (!Array.isArray(k.ujianSessions)) {
+            // Sesi awal hanya jika kelas belum pernah memiliki konfigurasi sesi ujian sama sekali
+            defaultSessions = [
+              {
+                id: `${k.id}-u1`,
+                namaUjian: "Tasmi' Ujian Utama",
+                tanggalUjian: "17 Oktober 2026",
+                santriList: matchedSantri.map((s) => ({ ...s }))
+              }
+            ];
+
+            // Tambahkan sesi ujian tambahan yang pernah disimpan di MongoDB ujian untuk kelas ini
+            const savedExamsForClass = dbUjianList.filter((u) => u.classId === k.id);
+            const extraExamIds = Array.from(new Set(savedExamsForClass.map((u) => u.examId))).filter(
+              (examId) => !defaultSessions.some((ds) => ds.id === examId)
+            );
+
+            extraExamIds.forEach((examId) => {
+              const sample = savedExamsForClass.find((u) => u.examId === examId);
+              defaultSessions.unshift({
+                id: examId,
+                namaUjian: sample?.namaUjian || "Ujian Tilawah",
+                tanggalUjian: sample?.tanggalUjian || "-",
+                santriList: matchedSantri.map((s) => ({ ...s }))
+              });
+            });
+          }
+
+          // Sinkronkan nilai santri yang sudah diuji dari MongoDB
+          const syncedUjianList = defaultSessions.map((u) => ({
+            ...u,
+            santriList: u.santriList.map((s) => {
+              const saved = evalMap.get(`${k.id}_${u.id}_${s.id}`);
+              if (saved) {
+                return {
+                  ...s,
+                  status: saved.status || s.status,
+                  surahDibaca: classMateri || saved.surahDibaca || s.surahDibaca,
+                  totalKesalahan: saved.totalKesalahan ?? s.totalKesalahan,
+                  nilai: saved.nilai ?? s.nilai,
+                  predikat: saved.predikat ?? s.predikat,
+                  catatanGuru: saved.catatanGuru ?? s.catatanGuru,
+                  errors: saved.errors || s.errors
+                };
+              }
+              return {
+                ...s,
+                surahDibaca: classMateri || s.surahDibaca
+              };
+            })
+          }));
+
+          return {
+            id: String(k.id),
+            categoryId,
+            name: k.nama,
+            wali: waliDisplay,
+            waliList: parsedWaliList,
+            ruangan: k.ruangan || "-",
+            target: k.program || "Murottal",
+            materiTerakhir: classMateri,
+            santriList: matchedSantri,
+            ujianList: syncedUjianList
+          };
+        });
+
+        setClassesList(mappedClasses);
+      } catch (err) {
+        console.warn("Gagal memuat data kelas dari database:", err);
+        setClassesList(
+          initialClassesData.map((cls) => ({
+            ...cls,
+            ujianList: createDefaultUjianList(cls.id, cls.santriList)
+          }))
+        );
+      } finally {
+        setIsLoadingClasses(false);
+      }
+    }
+
+    loadDatabaseRecords();
+  }, []);
 
   // Live Error Tracking Counters
-  const [errorCounters, setErrorCounters] = useState({
-    makhorij: 0,
-    shifat: 0,
-    mad: 0,
-    nunMim: 0,
-    waqaf: 0,
-    lahnJali: 0
-  });
+  const [errorCounters, setErrorCounters] = useState<ErrorCounters>(EMPTY_ERROR_COUNTERS);
+
+  // Sync URL pathname (/program/[kategori]/[kelas]/[ujian]/[santri]) with active state
+  useEffect(() => {
+    if (!pathname || pathname === "/" || !pathname.startsWith("/program")) {
+      loadedEvalKeyRef.current = null;
+      setCurrentStep("welcome");
+      return;
+    }
+
+    const segments = pathname
+      .replace(/^\/program\/?/, "")
+      .split("/")
+      .filter(Boolean)
+      .map((s) => decodeURIComponent(s).toLowerCase());
+
+    if (segments.length === 0) {
+      loadedEvalKeyRef.current = null;
+      setSelectedCategoryId(null);
+      setSelectedClassId(null);
+      setSelectedExamId(null);
+      setCurrentStep("category");
+      return;
+    }
+
+    const [catSeg, classSeg, examSeg, santriSeg] = segments;
+    const matchedCat = categoriesData.find(
+      (c) => c.id.toLowerCase() === catSeg || toSlug(c.name) === catSeg
+    );
+    const resolvedCatId = matchedCat ? matchedCat.id : catSeg;
+    setSelectedCategoryId(resolvedCatId);
+
+    if (segments.length === 1) {
+      loadedEvalKeyRef.current = null;
+      setSelectedClassId(null);
+      setSelectedExamId(null);
+      setCurrentStep("class");
+      return;
+    }
+
+    const matchedClass =
+      classesList.find(
+        (c) =>
+          c.categoryId === resolvedCatId &&
+          (getClassSlug(classesList, c) === classSeg ||
+            toSlug(c.name) === classSeg ||
+            c.id.toLowerCase() === classSeg)
+      ) ||
+      classesList.find(
+        (c) =>
+          getClassSlug(classesList, c) === classSeg ||
+          toSlug(c.name) === classSeg ||
+          c.id.toLowerCase() === classSeg
+      );
+
+    if (matchedClass) {
+      setSelectedClassId((prevId) => {
+        if (prevId !== matchedClass.id) {
+          setClassMateriInput(matchedClass.materiTerakhir || "");
+        }
+        return matchedClass.id;
+      });
+    }
+
+    if (segments.length === 2) {
+      loadedEvalKeyRef.current = null;
+      setSelectedExamId(null);
+      if (matchedClass) {
+        setClassMateriInput(matchedClass.materiTerakhir || "");
+      }
+      setCurrentStep("exams");
+      return;
+    }
+
+    const classExams = matchedClass?.ujianList || [];
+    const matchedExam =
+      classExams.find(
+        (u) =>
+          getExamSlug(classExams, u) === examSeg ||
+          toSlug(u.namaUjian) === examSeg ||
+          u.id.toLowerCase() === examSeg
+      ) || classExams[0];
+
+    if (matchedExam) {
+      setSelectedExamId(matchedExam.id);
+    }
+
+    if (segments.length === 3) {
+      loadedEvalKeyRef.current = null;
+      setCurrentStep("students");
+      return;
+    }
+
+    if (matchedClass && matchedExam) {
+      const examSantri = matchedExam.santriList || [];
+      const matchedSantri =
+        examSantri.find(
+          (st) =>
+            getSantriSlug(examSantri, st) === santriSeg ||
+            toSlug(st.nama) === santriSeg ||
+            st.id.toLowerCase() === santriSeg
+        ) || examSantri[0];
+
+      if (matchedSantri) {
+        const evalKey = `${matchedClass.id}_${matchedExam.id}_${matchedSantri.id}`;
+        setActiveSantriId(matchedSantri.id);
+        if (loadedEvalKeyRef.current !== evalKey) {
+          loadedEvalKeyRef.current = evalKey;
+          const rawErrors = matchedSantri.errors || EMPTY_ERROR_COUNTERS;
+          setSurahAyat(matchedClass.materiTerakhir || matchedSantri.surahDibaca || "");
+          setErrorCounters({
+            ...EMPTY_ERROR_COUNTERS,
+            ...rawErrors,
+            ahkamulHuruf: rawErrors.ahkamulHuruf ?? rawErrors.nunMim ?? 0,
+            muroatulHuruf: rawErrors.muroatulHuruf ?? rawErrors.lahnJali ?? 0,
+            nunMim: 0,
+            lahnJali: 0
+          });
+          setCatatanUstadz(matchedSantri.catatanGuru || "");
+        }
+      }
+    }
+    setCurrentStep("evaluation");
+  }, [pathname, classesList]);
 
   // Current selected objects
   const selectedCategory = categoriesData.find((c) => c.id === selectedCategoryId);
   const selectedClass = classesList.find((c) => c.id === selectedClassId);
   const availableClasses = classesList.filter((c) => c.categoryId === selectedCategoryId);
   const selectedExam =
-    selectedClass?.ujianList?.find((u) => u.id === selectedExamId) || selectedClass?.ujianList?.[0];
+    selectedClass?.ujianList?.find((u) => u.id === selectedExamId) ||
+    selectedClass?.ujianList?.[0];
   const activeSantri =
-    selectedExam?.santriList.find((s) => s.id === activeSantriId) || selectedExam?.santriList[0];
+    selectedExam?.santriList.find((s) => s.id === activeSantriId) ||
+    selectedExam?.santriList[0];
 
   // Filtered santri list for search in current exam
   const filteredSantri = (selectedExam?.santriList || []).filter((s) => {
@@ -503,128 +563,399 @@ export default function HomeGuruEvaluationPage() {
     return s.nama.toLowerCase().includes(q) || s.nis.toLowerCase().includes(q);
   });
 
+  // Helper to navigate back/between steps while updating browser URL route
+  const handleNavigateStep = (step: StepType) => {
+    if (step === "welcome") {
+      router.push("/");
+      return;
+    }
+    if (step === "category") {
+      router.push("/program");
+      return;
+    }
+    const catSlug = selectedCategoryId || selectedClass?.categoryId || "murottal";
+    if (step === "class") {
+      router.push(`/program/${catSlug}`);
+      return;
+    }
+    if (step === "exams" && selectedClass) {
+      const clsSlug = getClassSlug(classesList, selectedClass);
+      router.push(`/program/${selectedClass.categoryId}/${clsSlug}`);
+      return;
+    }
+    if (step === "students" && selectedClass && selectedExam) {
+      const clsSlug = getClassSlug(classesList, selectedClass);
+      const exSlug = getExamSlug(selectedClass.ujianList || [], selectedExam);
+      router.push(`/program/${selectedClass.categoryId}/${clsSlug}/${exSlug}`);
+      return;
+    }
+    setCurrentStep(step);
+  };
+
   // Step transitions
   const handleStartProcess = () => {
     setSelectedCategoryId(null);
     setSelectedClassId(null);
     setSelectedExamId(null);
     setCurrentStep("category");
+    router.push("/program");
   };
 
   const handleSelectCategory = (catId: string) => {
     setSelectedCategoryId(catId);
     setCurrentStep("class");
+    router.push(`/program/${catId}`);
   };
 
   const handleSelectClass = (clsId: string) => {
+    const found = classesList.find((c) => c.id === clsId);
     setSelectedClassId(clsId);
+    setClassMateriInput(found?.materiTerakhir || "");
     setSelectedExamId(null);
     setSearchSantri("");
     setCurrentStep("exams");
+    if (found) {
+      const catSlug = selectedCategoryId || found.categoryId;
+      const clsSlug = getClassSlug(classesList, found);
+      router.push(`/program/${catSlug}/${clsSlug}`);
+    }
+  };
+
+  const handleSaveClassMateri = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedClass) return;
+
+    const trimmedMateri = classMateriInput.trim();
+    setIsSavingClassMateri(true);
+
+    setClassesList((prev) =>
+      prev.map((cls) => {
+        if (cls.id !== selectedClass.id) return cls;
+        return {
+          ...cls,
+          materiTerakhir: trimmedMateri,
+          santriList: cls.santriList.map((s) => ({
+            ...s,
+            surahDibaca: trimmedMateri
+          })),
+          ujianList: (cls.ujianList || []).map((u) => ({
+            ...u,
+            santriList: u.santriList.map((s) => ({
+              ...s,
+              surahDibaca: trimmedMateri
+            }))
+          }))
+        };
+      })
+    );
+
+    try {
+      await fetch("/api/kelas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedClass.id,
+          nama: selectedClass.name,
+          materiTerakhir: trimmedMateri
+        })
+      });
+      setToastMessage(
+        `Materi terakhir kelas ${selectedClass.name} disimpan sebagai patokan: "${trimmedMateri || "-"}"`
+      );
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err) {
+      console.warn("Gagal menyimpan materi terakhir kelas:", err);
+    } finally {
+      setIsSavingClassMateri(false);
+    }
   };
 
   const handleEnterExam = (examId: string) => {
     setSelectedExamId(examId);
     setSearchSantri("");
     setCurrentStep("students");
+    if (selectedClass) {
+      const targetExam = (selectedClass.ujianList || []).find((u) => u.id === examId);
+      const clsSlug = getClassSlug(classesList, selectedClass);
+      const exSlug = targetExam
+        ? getExamSlug(selectedClass.ujianList || [], targetExam)
+        : toSlug(examId);
+      router.push(`/program/${selectedClass.categoryId}/${clsSlug}/${exSlug}`);
+    }
   };
 
   const handleOpenEvaluation = (santri: SantriRecord) => {
+    const rawErrors = santri.errors || EMPTY_ERROR_COUNTERS;
     setActiveSantriId(santri.id);
-    setSurahAyat(santri.surahDibaca || "");
-    setErrorCounters(santri.errors || { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 });
+    setSurahAyat(selectedClass?.materiTerakhir || santri.surahDibaca || "");
+    setErrorCounters({
+      ...EMPTY_ERROR_COUNTERS,
+      ...rawErrors,
+      ahkamulHuruf: rawErrors.ahkamulHuruf ?? rawErrors.nunMim ?? 0,
+      muroatulHuruf: rawErrors.muroatulHuruf ?? rawErrors.lahnJali ?? 0,
+      nunMim: 0,
+      lahnJali: 0
+    });
     setCatatanUstadz(santri.catatanGuru || "");
-    setCurrentStep("evaluation");
+    if (selectedClass && selectedExam) {
+      loadedEvalKeyRef.current = `${selectedClass.id}_${selectedExam.id}_${santri.id}`;
+      const clsSlug = getClassSlug(classesList, selectedClass);
+      const exSlug = getExamSlug(selectedClass.ujianList || [], selectedExam);
+      const stSlug = getSantriSlug(selectedExam.santriList || [], santri);
+      setCurrentStep("evaluation");
+      router.push(
+        `/program/${selectedClass.categoryId}/${clsSlug}/${exSlug}/${stSlug}`
+      );
+    } else {
+      setCurrentStep("evaluation");
+    }
   };
 
   const handleAddUjianSession = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClass || !newTanggalUjian.trim() || !newNamaUjian.trim()) return;
 
+    const formattedTanggal = formatTanggalIndo(newTanggalUjian.trim());
+    const nextIndex = (selectedClass.ujianList?.length || 0) + 1;
     const newSession: UjianSession = {
-      id: `${selectedClass.id}-u-${Date.now()}`,
+      id: `${selectedClass.id}-u${nextIndex}`,
       namaUjian: newNamaUjian.trim(),
-      tanggalUjian: newTanggalUjian.trim(),
+      tanggalUjian: formattedTanggal,
       santriList: selectedClass.santriList.map((s) => ({
         ...s,
         status: "Belum Setor" as const,
         nilai: null,
         predikat: null,
         totalKesalahan: 0,
-        errors: { makhorij: 0, shifat: 0, mad: 0, nunMim: 0, waqaf: 0, lahnJali: 0 },
+        errors: { ...EMPTY_ERROR_COUNTERS },
         catatanGuru: ""
       }))
     };
 
+    const nextUjianList = [newSession, ...(selectedClass.ujianList || [])];
+
     setClassesList((prev) =>
       prev.map((cls) =>
-        cls.id === selectedClass.id
-          ? { ...cls, ujianList: [newSession, ...(cls.ujianList || [])] }
-          : cls
+        cls.id === selectedClass.id ? { ...cls, ujianList: nextUjianList } : cls
       )
     );
+
+    fetch("/api/kelas", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: selectedClass.id,
+        nama: selectedClass.name,
+        ujianSessions: nextUjianList.map((u) => ({
+          id: u.id,
+          namaUjian: u.namaUjian,
+          tanggalUjian: u.tanggalUjian
+        }))
+      })
+    }).catch((err) => console.warn("Gagal menyimpan jadwal ujian kelas:", err));
 
     setNewTanggalUjian("");
     setNewNamaUjian("");
     setIsAddUjianOpen(false);
+    setMobileExamStepTab("ujian");
     setToastMessage(`Sesi ujian "${newSession.namaUjian}" berhasil ditambahkan!`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const handleOpenEditUjian = (ujian: UjianSession) => {
+    setEditUjianId(ujian.id);
+    setEditNamaUjian(ujian.namaUjian);
+    setEditTanggalUjian(
+      toInputDateFormat(ujian.tanggalUjian) || new Date().toISOString().split("T")[0]
+    );
+    setIsEditUjianOpen(true);
+  };
+
+  const handleSaveEditUjian = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClass || !editUjianId || !editNamaUjian.trim() || !editTanggalUjian.trim()) return;
+
+    try {
+      setIsSavingEditUjian(true);
+      const updatedNama = editNamaUjian.trim();
+      const updatedTanggal = formatTanggalIndo(editTanggalUjian.trim());
+
+      const nextUjianList = (selectedClass.ujianList || []).map((u) =>
+        u.id === editUjianId
+          ? { ...u, namaUjian: updatedNama, tanggalUjian: updatedTanggal }
+          : u
+      );
+
+      setClassesList((prev) =>
+        prev.map((cls) =>
+          cls.id === selectedClass.id ? { ...cls, ujianList: nextUjianList } : cls
+        )
+      );
+
+      // Sinkronkan ke dokumen kelas di MongoDB
+      await fetch("/api/kelas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedClass.id,
+          nama: selectedClass.name,
+          ujianSessions: nextUjianList.map((u) => ({
+            id: u.id,
+            namaUjian: u.namaUjian,
+            tanggalUjian: u.tanggalUjian
+          }))
+        })
+      });
+
+      // Sinkronkan ke koleksi ujian di MongoDB jika ada record evaluasi
+      await fetch("/api/ujian", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          classId: selectedClass.id,
+          examId: editUjianId,
+          namaUjian: updatedNama,
+          tanggalUjian: updatedTanggal
+        })
+      });
+
+      setIsEditUjianOpen(false);
+      setToastMessage(`Jadwal ujian "${updatedNama}" berhasil diperbarui!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      console.error("Gagal memperbarui ujian:", err);
+      setToastMessage("Gagal memperbarui nama ujian");
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsSavingEditUjian(false);
+    }
+  };
+
+  const handleOpenDeleteUjian = (ujian: UjianSession) => {
+    setDeleteUjianSession(ujian);
+    setIsDeleteUjianOpen(true);
+  };
+
+  const handleConfirmDeleteUjian = async () => {
+    if (!selectedClass || !deleteUjianSession) return;
+
+    try {
+      setIsDeletingUjian(true);
+      const targetId = deleteUjianSession.id;
+      const targetName = deleteUjianSession.namaUjian;
+
+      const nextUjianList = (selectedClass.ujianList || []).filter((u) => u.id !== targetId);
+
+      setClassesList((prev) =>
+        prev.map((cls) =>
+          cls.id === selectedClass.id ? { ...cls, ujianList: nextUjianList } : cls
+        )
+      );
+
+      // Sinkronkan ke dokumen kelas di MongoDB
+      await fetch("/api/kelas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedClass.id,
+          nama: selectedClass.name,
+          ujianSessions: nextUjianList.map((u) => ({
+            id: u.id,
+            namaUjian: u.namaUjian,
+            tanggalUjian: u.tanggalUjian
+          }))
+        })
+      });
+
+      // Hapus evaluasi yang berkaitan dari koleksi ujian di MongoDB
+      await fetch(`/api/ujian?classId=${encodeURIComponent(selectedClass.id)}&examId=${encodeURIComponent(targetId)}`, {
+        method: "DELETE"
+      });
+
+      if (selectedExamId === targetId) {
+        setSelectedExamId(null);
+      }
+
+      setIsDeleteUjianOpen(false);
+      setDeleteUjianSession(null);
+      setToastMessage(`Sesi ujian "${targetName}" berhasil dihapus.`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      console.error("Gagal menghapus sesi ujian:", err);
+      setToastMessage("Gagal menghapus ujian");
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsDeletingUjian(false);
+    }
+  };
+
   // Error Counter Handlers
-  const handleAdjustError = (key: keyof typeof errorCounters, delta: number) => {
+  const handleAdjustError = (key: keyof ErrorCounters, delta: number) => {
     setErrorCounters((prev) => ({
       ...prev,
-      [key]: Math.max(0, prev[key] + delta)
+      [key]: Math.max(0, (Number(prev[key]) || 0) + delta)
     }));
+  };
+
+  const handleToggleMakhorijLetter = (letter: string) => {
+    setErrorCounters((prev) => {
+      const currentLetters = prev.makhorijHuruf || [];
+      const exists = currentLetters.includes(letter);
+      const nextLetters = exists
+        ? currentLetters.filter((l) => l !== letter)
+        : [...currentLetters, letter];
+      const nextCount = exists
+        ? Math.max(0, (prev.makhorij || 0) - 1)
+        : (prev.makhorij || 0) + 1;
+      return {
+        ...prev,
+        makhorij: nextCount,
+        makhorijHuruf: nextLetters
+      };
+    });
   };
 
   const handleAddQuickTag = (tag: string) => {
     setCatatanUstadz((prev) => (prev ? `${prev}, ${tag}` : tag));
   };
 
-  // Calculate live score
+  // Calculate live score sesuai bobot 9 materi resmi:
+  // 1. Makhorijul Huruf (3x)
+  // 2. Shifatul Huruf (2x)
+  // 3. Ahkamul Huruf (2x)
+  // 4. Ahkamul Mad (2x)
+  // 5. Waqof wal Ibtida (2x)
+  // 6. Muroatul Huruf wal Harokah (2x)
+  // 7. Miring (1x)
+  // 8. Tawallud (1x)
+  // 9. Kelancaran (1x)
   const totalErrors =
-    errorCounters.makhorij +
-    errorCounters.shifat +
-    errorCounters.mad +
-    errorCounters.nunMim +
-    errorCounters.waqaf +
-    errorCounters.lahnJali;
+    (errorCounters.makhorij || 0) * 3 +
+    (errorCounters.shifat || 0) * 2 +
+    (errorCounters.ahkamulHuruf ?? errorCounters.nunMim ?? 0) * 2 +
+    (errorCounters.mad || 0) * 2 +
+    (errorCounters.waqaf || 0) * 2 +
+    (errorCounters.muroatulHuruf ?? errorCounters.lahnJali ?? 0) * 2 +
+    (errorCounters.miring || 0) * 1 +
+    (errorCounters.tawallud || 0) * 1 +
+    (errorCounters.kelancaran || 0) * 1;
 
-  const calculatedScore = Math.max(
-    50,
-    Math.round(
-      100 -
-        (errorCounters.lahnJali * 6 +
-          errorCounters.makhorij * 3 +
-          errorCounters.shifat * 1.5 +
-          errorCounters.mad * 2 +
-          errorCounters.nunMim * 2 +
-          errorCounters.waqaf * 2.5)
-    )
-  );
-
-  const getPredikat = (score: number) => {
-    if (score >= 95) return "Mumtaz (Istimewa)";
-    if (score >= 85) return "Jayyid Jiddan (Sangat Baik)";
-    if (score >= 75) return "Jayyid (Baik)";
-    if (score >= 65) return "Maqbul (Cukup)";
-    return "Perlu Bimbingan / Remidi";
-  };
+  const calculatedScore = Math.max(0, 100 - totalErrors);
 
   // Save current student evaluation and return to student table for this exam
   const handleSaveEvaluation = () => {
     if (!selectedClass || !selectedExam || !activeSantri) return;
 
     const predikat = getPredikat(calculatedScore);
+    const materiPatokanKelas =
+      selectedClass.materiTerakhir || surahAyat || activeSantri.surahDibaca;
 
     const updatedSantriList = selectedExam.santriList.map((s) => {
       if (s.id === activeSantri.id) {
         return {
           ...s,
           status: "Selesai" as const,
-          surahDibaca: surahAyat || s.surahDibaca,
+          surahDibaca: materiPatokanKelas,
           totalKesalahan: totalErrors,
           nilai: calculatedScore,
           predikat: predikat,
@@ -643,25 +974,44 @@ export default function HomeGuruEvaluationPage() {
     });
 
     setClassesList((prev) =>
-      prev.map((cls) => (cls.id === selectedClass.id ? { ...cls, ujianList: updatedUjianList } : cls))
+      prev.map((cls) =>
+        cls.id === selectedClass.id ? { ...cls, ujianList: updatedUjianList } : cls
+      )
     );
 
-    setToastMessage(`Evaluasi bacaan untuk ${activeSantri.nama} berhasil disimpan! Nilai: ${calculatedScore} (${predikat})`);
+    // Persist evaluation directly to MongoDB Compass (raport_quran.ujian)
+    fetch("/api/ujian", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        classId: selectedClass.id,
+        examId: selectedExam.id,
+        namaUjian: selectedExam.namaUjian,
+        tanggalUjian: selectedExam.tanggalUjian,
+        santriId: activeSantri.id,
+        nis: activeSantri.nis,
+        nama: activeSantri.nama,
+        status: "Selesai",
+        surahDibaca: materiPatokanKelas,
+        totalKesalahan: totalErrors,
+        nilai: calculatedScore,
+        predikat: predikat,
+        catatanGuru: catatanUstadz,
+        errors: { ...errorCounters }
+      })
+    }).catch((err) => console.warn("POST /api/ujian error:", err));
+
+    setToastMessage(
+      `Evaluasi bacaan untuk ${activeSantri.nama} berhasil disimpan! Nilai: ${calculatedScore} (${predikat})`
+    );
     setTimeout(() => setToastMessage(null), 4000);
 
     // Return to the students table for this exam!
-    setCurrentStep("students");
+    handleNavigateStep("students");
   };
 
   const handleResetCounters = () => {
-    setErrorCounters({
-      makhorij: 0,
-      shifat: 0,
-      mad: 0,
-      nunMim: 0,
-      waqaf: 0,
-      lahnJali: 0
-    });
+    setErrorCounters(EMPTY_ERROR_COUNTERS);
     setCatatanUstadz("");
   };
 
@@ -670,55 +1020,58 @@ export default function HomeGuruEvaluationPage() {
       {/* ========================================================= */}
       {/* APP TOPBAR / HEADER FOR ASATIDZ                           */}
       {/* ========================================================= */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-200 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <header className="no-print sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-200 shadow-xs">
+        <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-3 min-h-14 sm:h-16 py-2 sm:py-0">
             {/* Brand Title */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <button
-                onClick={() => setCurrentStep("welcome")}
-                className="w-9 h-9 rounded-lg bg-[#086288] flex items-center justify-center text-[#FFEFC4] shadow-xs hover:bg-[#064a67] transition-colors cursor-pointer"
+                onClick={() => handleNavigateStep("welcome")}
+                className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center cursor-pointer shrink-0 transition-transform hover:scale-105"
                 title="Beranda"
               >
-                <BookOpen className="w-5 h-5 text-[#FFEFC4]" />
+                <Image
+                  src="/logo-piq.png"
+                  alt="Logo Pesantren Ilmu Al-Qur'an"
+                  width={40}
+                  height={40}
+                  className="w-9 h-9 sm:w-10 sm:h-10 object-contain"
+                  priority
+                />
               </button>
-              <div>
-                <button
-                  onClick={() => setCurrentStep("welcome")}
-                  className="text-left group cursor-pointer"
-                >
-                  <span className="font-bold text-sm sm:text-base text-zinc-900 group-hover:text-[#086288] transition-colors tracking-tight block">
-                    Raport Qur&apos;an Digital
-                  </span>
-                  <span className="text-[11px] text-zinc-500 font-medium block">
-                    Pesantren Ilmu Al-Qur&apos;an
-                  </span>
-                </button>
-              </div>
+              <button
+                onClick={() => handleNavigateStep("welcome")}
+                className="text-left group cursor-pointer min-w-0"
+              >
+                <span className="font-bold text-sm sm:text-base text-zinc-900 group-hover:text-[#086288] transition-colors tracking-tight leading-tight block truncate">
+                  Raport Qur&apos;an Digital
+                </span>
+                <span className="text-[11px] text-zinc-500 font-medium leading-tight block truncate mt-0.5">
+                  Pesantren Ilmu Al-Qur&apos;an
+                </span>
+              </button>
             </div>
 
-            {/* Top Right Actions */}
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-2 text-zinc-600 font-medium">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>Semester Ganjil 2026/2027</span>
-              </div>
+            {/* Top Right Info */}
+            <div className="hidden sm:flex items-center text-xs text-zinc-500 font-medium shrink-0">
+              <span>Semester Ganjil 2026/2027</span>
             </div>
           </div>
         </div>
       </header>
 
-
-
       {/* Global Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-md p-4 rounded-2xl bg-[#FFEFC4] text-[#086288] border-2 border-amber-300 font-bold text-xs sm:text-sm shadow-2xl flex items-center justify-between gap-3 animate-slide-up">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg bg-zinc-900 text-white text-xs font-medium shadow-lg flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{toastMessage}</span>
           </div>
-          <button onClick={() => setToastMessage(null)} className="text-xs px-2 py-1 rounded bg-[#086288]/10">
-            OK
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-zinc-400 hover:text-white text-xs cursor-pointer"
+          >
+            Tutup
           </button>
         </div>
       )}
@@ -726,7 +1079,7 @@ export default function HomeGuruEvaluationPage() {
       {/* ========================================================= */}
       {/* MAIN CONTENT AREA                                         */}
       {/* ========================================================= */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6 flex flex-col">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 print:p-0 print:m-0 print:max-w-none space-y-6 print:space-y-0 flex flex-col">
         {/* ======================================================= */}
         {/* STEP 1: HANYA MENAMPILKAN SELAMAT DATANG SAJA (NO CARD) */}
         {/* ======================================================= */}
@@ -753,19 +1106,11 @@ export default function HomeGuruEvaluationPage() {
         {/* ======================================================= */}
         {currentStep === "category" && (
           <div className="space-y-6 animate-fade-in">
-            {/* Header section */}
-            {/* Header section */}
             <div className="border-b border-zinc-200/80 pb-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#086288] uppercase tracking-wider">
-                <span>Tahap 1 dari 3</span>
-              </div>
               <h2 className="text-2xl font-bold text-zinc-900 tracking-tight mt-1 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#086288]" />
                 Pilih Kategori Program
               </h2>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Tentukan program pembelajaran Al-Qur&apos;an yang akan disimak hari ini
-              </p>
             </div>
 
             {/* Category Cards Grid (3 Columns: Murottal, Murojaah, Tafsir) */}
@@ -791,11 +1136,10 @@ export default function HomeGuruEvaluationPage() {
         {/* ======================================================= */}
         {currentStep === "class" && selectedCategory && (
           <div className="space-y-6 animate-fade-in">
-            {/* Header info */}
             <div className="border-b border-zinc-200/80 pb-4">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentStep("category")}
+                  onClick={() => handleNavigateStep("category")}
                   className="p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:text-[#086288] hover:bg-zinc-50 transition-colors cursor-pointer"
                   title="Kembali ke Kategori"
                 >
@@ -805,240 +1149,452 @@ export default function HomeGuruEvaluationPage() {
                   Program: {selectedCategory.name}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold text-zinc-900 mt-1">
-                Pilih Kelas / Halaqah
+              <h2 className="text-2xl font-bold text-zinc-900 tracking-tight mt-1">
+                Pilih Kelas
               </h2>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Pilih rombel untuk membuka lembar pendataan dan evaluasi kesalahan bacaan santri
-              </p>
             </div>
 
             {/* List of classes in category */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {availableClasses.map((cls) => {
-                const totalSantri = cls.santriList.length;
-                const evaluatedCount = cls.santriList.filter((s) => s.status === "Selesai").length;
-                return (
+            {showClassSkeleton ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pt-1">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-white p-6 rounded-xl border border-zinc-200 flex items-center justify-between gap-3 animate-pulse"
+                  >
+                    <div className="h-6 bg-zinc-200 rounded-md w-28"></div>
+                    <div className="w-5 h-5 bg-zinc-200 rounded-full shrink-0"></div>
+                  </div>
+                ))}
+              </div>
+            ) : availableClasses.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pt-1">
+                {availableClasses.map((cls) => (
                   <div
                     key={cls.id}
                     onClick={() => handleSelectClass(cls.id)}
-                    className="group bg-white p-6 rounded-2xl border border-zinc-200 hover:border-[#086288] shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                    className="group bg-white p-6 rounded-xl border border-zinc-200 hover:border-[#086288] hover:bg-[#f8fbfe] hover:shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3"
                   >
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="w-10 h-10 rounded-xl bg-[#086288] text-[#FFEFC4] flex items-center justify-center font-bold shadow-xs">
-                          <GraduationCap className="w-5 h-5 text-[#FFEFC4]" />
-                        </div>
-                        <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-md bg-[#f0f7fb] text-[#086288] border border-[#4D8DBA]/25">
-                          {totalSantri} Santri
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-base font-bold text-zinc-900 group-hover:text-[#086288] transition-colors">
-                          {cls.name}
-                        </h3>
-                        <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                          Wali: {cls.wali}
-                        </p>
-                      </div>
-
-                      <div className="space-y-1.5 text-xs text-zinc-600 pt-2 border-t border-zinc-100">
-                        <div className="flex items-center gap-1.5 text-zinc-600">
-                          <School className="w-3.5 h-3.5 text-[#086288]" />
-                          <span>{cls.ruangan}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-zinc-500">
-                          <Bookmark className="w-3.5 h-3.5 text-[#086288]" />
-                          <span className="truncate">{cls.target}</span>
-                        </div>
-                      </div>
-
-                      {/* Progress bar of evaluation */}
-                      <div className="pt-2">
-                        <div className="flex justify-between text-[11px] font-medium text-zinc-500 mb-1">
-                          <span>Kemajuan Simakan</span>
-                          <span className="text-[#086288] font-semibold">
-                            {evaluatedCount} / {totalSantri} Santri
-                          </span>
-                        </div>
-                        <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="bg-[#086288] h-full rounded-full transition-all"
-                            style={{
-                              width: `${totalSantri > 0 ? (evaluatedCount / totalSantri) * 100 : 0}%`
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 mt-4 border-t border-zinc-100 flex items-center justify-between">
-                      <span className="text-xs text-zinc-500 font-medium">Daftar Santri ({totalSantri})</span>
-                      <button className="px-3 py-1.5 rounded-lg bg-[#086288] hover:bg-[#064a67] text-white text-xs font-semibold transition-colors flex items-center gap-1 shadow-xs cursor-pointer">
-                        <span>Pilih Kelas</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-white" />
-                      </button>
-                    </div>
+                    <h3 className="text-lg font-bold text-zinc-900 group-hover:text-[#086288] transition-colors">
+                      {cls.name}
+                    </h3>
+                    <ArrowRight className="w-5 h-5 text-zinc-300 group-hover:text-[#086288] group-hover:translate-x-1 transition-all shrink-0" />
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : !isLoadingClasses ? (
+              <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center text-xs text-zinc-500">
+                Belum ada kelas pada program {selectedCategory.name} di basis data.
+              </div>
+            ) : null}
           </div>
         )}
 
-        {/* ======================================================= */}
-        {/* STEP 4: TABEL UJIAN (Format Profesional & Institusional) */}
-        {/* ======================================================= */}
-        {currentStep === "exams" && selectedClass && (
-          <div className="space-y-5 animate-fade-in">
-            {/* Breadcrumb & Navigation */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
-              <div>
-                <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-1">
-                  <button onClick={() => setCurrentStep("category")} className="hover:text-[#086288] transition-colors cursor-pointer">
-                    Program {selectedCategory?.name}
-                  </button>
-                  <span>/</span>
-                  <button onClick={() => setCurrentStep("class")} className="hover:text-[#086288] transition-colors cursor-pointer">
-                    {selectedClass.name}
-                  </button>
-                  <span>/</span>
-                  <span className="text-zinc-800 font-medium">Jadwal Ujian</span>
+        {/* Loading state saat membuka URL rute langsung (refresh) hanya jika memang memakan waktu */}
+        {showClassSkeleton &&
+          isLoadingClasses &&
+          !selectedClass &&
+          (currentStep === "exams" ||
+            currentStep === "students" ||
+            currentStep === "evaluation") && (
+            <div className="space-y-4 sm:space-y-5 animate-pulse">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="w-8 h-8 bg-zinc-200 rounded-md"></div>
+                  <div className="space-y-1.5">
+                    <div className="h-5 w-32 bg-zinc-200 rounded-md"></div>
+                    <div className="h-3.5 w-48 bg-zinc-100 rounded-md"></div>
+                  </div>
                 </div>
-                <h1 className="text-xl font-bold text-zinc-900 tracking-tight">
-                  {selectedClass.name}
-                </h1>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Pengampu: <span className="text-zinc-700 font-medium">{selectedClass.wali}</span> &bull; Ruang: <span className="text-zinc-700 font-medium">{selectedClass.ruangan}</span> &bull; Target: <span className="text-zinc-700 font-medium">{selectedClass.target}</span>
-                </p>
+                <div className="h-8 w-28 bg-zinc-200 rounded-md"></div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button
-                  onClick={() => setCurrentStep("class")}
-                  className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-100 bg-white text-zinc-700 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Ganti Kelas</span>
-                </button>
-                <button
-                  onClick={() => setIsAddUjianOpen(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#086288] hover:bg-[#064a67] text-white text-xs font-medium transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 text-white" />
-                  <span>Tambah Tanggal Ujian</span>
-                </button>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+                <div className="lg:col-span-5 space-y-4 sm:space-y-5">
+                  <div className="bg-white rounded-lg border border-zinc-200 p-4 space-y-3">
+                    <div className="h-4 w-28 bg-zinc-200 rounded"></div>
+                    <div className="h-16 bg-zinc-100 rounded"></div>
+                  </div>
+                  <div className="bg-white rounded-lg border border-zinc-200 p-4 space-y-3">
+                    <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                    <div className="space-y-2">
+                      <div className="h-8 bg-zinc-100 rounded"></div>
+                      <div className="h-8 bg-zinc-100 rounded"></div>
+                      <div className="h-8 bg-zinc-100 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="lg:col-span-7 bg-white rounded-lg border border-zinc-200 p-4 space-y-3">
+                  <div className="h-4 w-36 bg-zinc-200 rounded"></div>
+                  <div className="space-y-2">
+                    <div className="h-12 bg-zinc-100 rounded"></div>
+                    <div className="h-12 bg-zinc-100 rounded"></div>
+                    <div className="h-12 bg-zinc-100 rounded"></div>
+                  </div>
+                </div>
               </div>
             </div>
+          )}
 
-            {/* TABEL UJIAN CARD */}
-            <div className="bg-white rounded-lg border border-zinc-200 shadow-2xs overflow-hidden">
-              <div className="p-4 border-b border-zinc-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-zinc-50/50">
-                <div>
-                  <h2 className="text-sm font-bold text-zinc-900">Daftar Sesi Ujian Tilawah</h2>
-                  <p className="text-xs text-zinc-500">Pilih tanggal ujian dan klik tombol <strong>Masuk</strong> untuk membuka lembar daftar santri.</p>
+        {/* ======================================================= */}
+        {/* STEP 4: DETAIL KELAS, SANTRI & TABEL UJIAN / TASHIH     */}
+        {/* ======================================================= */}
+        {currentStep === "exams" && selectedClass && (
+          <div className="space-y-4 sm:space-y-5 animate-fade-in">
+            {/* Header & Actions */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <button
+                  onClick={() => handleNavigateStep("class")}
+                  className="p-1.5 rounded-md border border-zinc-300 hover:bg-zinc-50 bg-white text-zinc-700 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                  title="Kembali ke Pilih Kelas"
+                >
+                  <ArrowLeft className="w-4 h-4 text-zinc-600" />
+                </button>
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-bold text-zinc-900 tracking-tight truncate">
+                    Kelas {selectedClass.name}
+                  </h1>
+                  <p className="text-[11px] sm:text-xs text-zinc-500 mt-0.5 truncate">
+                    {selectedClass.target} • {selectedClass.santriList.length} santri •{" "}
+                    {(selectedClass.ujianList || []).length} sesi
+                  </p>
                 </div>
-                <span className="text-xs text-zinc-500 bg-white px-2.5 py-1 rounded border border-zinc-200">
-                  Total {(selectedClass.ujianList || []).length} Sesi
-                </span>
               </div>
 
-              {/* TABLE */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-semibold uppercase tracking-wider text-[11px]">
-                    <tr>
-                      <th className="px-4 py-3 text-center w-14">No</th>
-                      <th className="px-5 py-3">Tanggal Ujian</th>
-                      <th className="px-5 py-3 text-center w-44">Santri Selesai</th>
-                      <th className="px-5 py-3 text-center w-44">Santri Belum</th>
-                      <th className="px-5 py-3 text-right w-28">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200/70">
-                    {(selectedClass.ujianList || []).length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-zinc-400">
-                          <p className="font-medium text-zinc-600">Belum ada sesi ujian yang dibuat</p>
-                          <p className="text-[11px] text-zinc-400 mt-1">Klik tombol &quot;Tambah Tanggal Ujian&quot; untuk membuat jadwal baru.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      (selectedClass.ujianList || []).map((ujian, index) => {
-                        const selesai = ujian.santriList.filter((s) => s.status === "Selesai").length;
-                        const belum = ujian.santriList.filter((s) => s.status !== "Selesai").length;
-                        return (
-                          <tr
-                            key={ujian.id}
-                            onClick={() => handleEnterExam(ujian.id)}
-                            className="hover:bg-zinc-50 transition-colors cursor-pointer group"
-                          >
-                            <td className="px-4 py-3.5 text-center font-mono text-zinc-400">
-                              {index + 1}
-                            </td>
-                            <td className="px-5 py-3.5">
-                              <div className="font-semibold text-zinc-900 group-hover:text-[#086288] transition-colors">
-                                {ujian.tanggalUjian}
-                              </div>
-                              <div className="text-[11px] text-zinc-500 mt-0.5">
-                                {ujian.namaUjian}
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 text-center">
-                              {selesai > 0 ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  {selesai} Santri Selesai
-                                </span>
-                              ) : (
-                                <span className="text-zinc-400 text-xs">0 Santri Selesai</span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3.5 text-center">
-                              {belum > 0 ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                                  {belum} Santri Belum
-                                </span>
-                              ) : (
-                                <span className="text-emerald-700 text-xs font-medium">Semua Selesai</span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEnterExam(ujian.id);
-                                }}
-                                className="px-3 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-medium transition-colors inline-flex items-center gap-1 shadow-2xs cursor-pointer ml-auto"
-                              >
-                                <span>Masuk</span>
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </button>
+              <button
+                onClick={() => {
+                  if (!newTanggalUjian) {
+                    setNewTanggalUjian(new Date().toISOString().split("T")[0]);
+                  }
+                  setIsAddUjianOpen(true);
+                }}
+                className="px-2.5 sm:px-3.5 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5 text-white shrink-0" />
+                <span>Tambah Jadwal</span>
+              </button>
+            </div>
+
+            {/* Navigasi 2 Tab khusus Mode Mobile: Data Santri Kelas & Ujian */}
+            <div className="lg:hidden grid grid-cols-2 p-1 bg-zinc-100 rounded-lg border border-zinc-200">
+              <button
+                type="button"
+                onClick={() => setMobileExamStepTab("santri")}
+                className={`py-2 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                  mobileExamStepTab === "santri"
+                    ? "bg-white text-[#086288] shadow-xs border border-zinc-200/80"
+                    : "text-zinc-600 hover:text-zinc-900"
+                }`}
+              >
+                Data Santri Kelas
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileExamStepTab("ujian")}
+                className={`py-2 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
+                  mobileExamStepTab === "ujian"
+                    ? "bg-white text-[#086288] shadow-xs border border-zinc-200/80"
+                    : "text-zinc-600 hover:text-zinc-900"
+                }`}
+              >
+                Ujian
+              </button>
+            </div>
+
+            {/* Grid Layout: Kiri = Info Kelas & Daftar Santri, Kanan = Tabel Ujian / Tashih */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+              {/* PANEL KIRI: INFORMASI KELAS & DAFTAR SANTRI */}
+              <div
+                className={`${
+                  mobileExamStepTab === "santri" ? "block" : "hidden"
+                } lg:block lg:col-span-5 space-y-4 sm:space-y-5`}
+              >
+                {/* Kartu Informasi Kelas */}
+                <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
+                  <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-zinc-50/60">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                      Informasi Kelas
+                    </h2>
+                  </div>
+                  <div className="divide-y divide-zinc-200 text-xs">
+                    <div className="grid grid-cols-3 divide-x divide-zinc-200 bg-white">
+                      <div className="px-3 py-2">
+                        <div className="text-[10px] text-zinc-500">Kelas</div>
+                        <div className="font-semibold text-zinc-900 mt-0.5 truncate">
+                          {selectedClass.name}
+                        </div>
+                      </div>
+                      <div className="px-3 py-2">
+                        <div className="text-[10px] text-zinc-500">Program</div>
+                        <div className="font-medium text-zinc-900 mt-0.5 truncate">
+                          {selectedClass.target}
+                        </div>
+                      </div>
+                      <div className="px-3 py-2">
+                        <div className="text-[10px] text-zinc-500">Total Tashih</div>
+                        <div className="font-semibold text-[#086288] mt-0.5 tabular-nums">
+                          {(selectedClass.ujianList || []).length} kali
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-3.5 sm:px-4 py-2.5 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-zinc-500 text-[11px]">Guru Pengajar</span>
+                        <span className="text-zinc-400 text-[11px]">
+                          {selectedClass.waliList && selectedClass.waliList.length > 0
+                            ? `${selectedClass.waliList.length} pengajar`
+                            : ""}
+                        </span>
+                      </div>
+                      {selectedClass.waliList && selectedClass.waliList.length > 0 ? (
+                        <div className="space-y-1 pt-0.5">
+                          {selectedClass.waliList.map((guru, idx) => (
+                            <div
+                              key={guru}
+                              className="flex items-start gap-1.5 px-2.5 py-1 rounded bg-zinc-50 border border-zinc-200/70 text-zinc-900 font-medium text-[11px] sm:text-xs"
+                            >
+                              <span className="text-zinc-400 tabular-nums shrink-0">
+                                {idx + 1}.
+                              </span>
+                              <span className="leading-snug">{guru}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="font-medium text-zinc-900">
+                          {selectedClass.wali || "-"}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Input Materi Terakhir Kelas (Patokan Semua Santri) */}
+                    <form
+                      onSubmit={handleSaveClassMateri}
+                      className="px-3.5 sm:px-4 py-2.5 bg-zinc-50/40 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <label className="text-zinc-600 font-semibold text-[11px]">
+                          Materi Terakhir Kelas
+                        </label>
+                        <span className="text-[10px] text-zinc-400">
+                          Patokan seluruh santri
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={classMateriInput}
+                          onChange={(e) => setClassMateriInput(e.target.value)}
+                          placeholder="Contoh: JUZ 16"
+                          className="w-full px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSavingClassMateri}
+                          className="px-3 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] disabled:opacity-60 text-white text-xs font-medium transition-colors cursor-pointer shrink-0"
+                        >
+                          {isSavingClassMateri ? "..." : "Simpan"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Kartu Daftar Santri di Kelas Ini */}
+                <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
+                  <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-zinc-50/60 flex items-center justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                      Daftar Santri
+                    </h2>
+                    <span className="text-xs text-zinc-500 tabular-nums">
+                      {selectedClass.santriList.length} santri
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-medium">
+                        <tr>
+                          <th className="px-3 py-2 w-9 text-center">No</th>
+                          <th className="px-3 py-2">Nama Santri</th>
+                          <th className="px-3 py-2 text-right w-24">Tashih</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 text-zinc-700">
+                        {selectedClass.santriList.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="px-4 py-6 text-center text-zinc-400">
+                              Belum ada santri terdaftar di kelas ini.
                             </td>
                           </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                        ) : (
+                          selectedClass.santriList.map((santri, idx) => {
+                            const totalSessions = (selectedClass.ujianList || []).length;
+                            const completedSessions = (selectedClass.ujianList || []).filter((u) =>
+                              u.santriList.some(
+                                (us) => us.id === santri.id && us.status === "Selesai"
+                              )
+                            ).length;
+
+                            return (
+                              <tr key={santri.id} className="hover:bg-zinc-50/80">
+                                <td className="px-3 py-2 text-center text-zinc-400 tabular-nums">
+                                  {idx + 1}
+                                </td>
+                                <td className="px-3 py-2 font-medium text-zinc-900">
+                                  {santri.nama}
+                                </td>
+                                <td className="px-3 py-2 text-right tabular-nums text-zinc-600 whitespace-nowrap">
+                                  {completedSessions}/{totalSessions} ujian
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
 
-              {/* Table Footer info */}
-              <div className="px-5 py-3 border-t border-zinc-200 bg-zinc-50 text-[11px] text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-                <span>Menampilkan {(selectedClass.ujianList || []).length} jadwal sesi ujian di {selectedClass.name}</span>
-                <span className="text-zinc-400">Klik tombol Masuk pada baris tanggal ujian untuk membuka daftar santri</span>
+              {/* PANEL KANAN: TABEL JADWAL UJIAN / TASHIH */}
+              <div
+                className={`${
+                  mobileExamStepTab === "ujian" ? "block" : "hidden"
+                } lg:block lg:col-span-7 bg-white rounded-lg border border-zinc-200 overflow-hidden`}
+              >
+                <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-zinc-50/60 flex items-center justify-between">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                    Jadwal Ujian / Tashih
+                  </h2>
+                  <span className="text-xs text-zinc-500 tabular-nums">
+                    Total: {(selectedClass.ujianList || []).length} sesi
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-semibold text-[11px]">
+                      <tr>
+                        <th className="px-3 sm:px-4 py-2.5 text-center w-9 sm:w-12">No</th>
+                        <th className="px-3 sm:px-4 py-2.5">
+                          <span className="sm:hidden">Tanggal &amp; Ujian</span>
+                          <span className="hidden sm:inline">Tanggal &amp; Nama Ujian / Tashih</span>
+                        </th>
+                        <th className="hidden sm:table-cell px-3 py-2.5 text-center w-24">
+                          Selesai
+                        </th>
+                        <th className="hidden sm:table-cell px-3 py-2.5 text-center w-24">
+                          Belum Diuji
+                        </th>
+                        <th className="px-3 sm:px-4 py-2.5 text-right w-28 sm:w-36">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200">
+                      {(selectedClass.ujianList || []).length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                            Belum ada jadwal ujian.
+                          </td>
+                        </tr>
+                      ) : (
+                        (selectedClass.ujianList || []).map((ujian, index) => {
+                          const selesai = ujian.santriList.filter(
+                            (s) => s.status === "Selesai"
+                          ).length;
+                          const belum = ujian.santriList.filter(
+                            (s) => s.status !== "Selesai"
+                          ).length;
+                          return (
+                            <tr
+                              key={ujian.id}
+                              onClick={() => handleEnterExam(ujian.id)}
+                              className="hover:bg-zinc-50/80 transition-colors cursor-pointer"
+                            >
+                              <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-center text-zinc-500 tabular-nums">
+                                {index + 1}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5 sm:py-3">
+                                <div className="font-semibold text-zinc-900 leading-snug">
+                                  {ujian.tanggalUjian}
+                                </div>
+                                <div className="text-[11px] text-zinc-500 mt-0.5 leading-snug">
+                                  {ujian.namaUjian}
+                                </div>
+                                <div className="sm:hidden flex items-center gap-1.5 text-[11px] mt-1 tabular-nums">
+                                  <span className="text-zinc-700 font-medium">
+                                    {selesai} selesai
+                                  </span>
+                                  <span className="text-zinc-300">•</span>
+                                  {belum > 0 ? (
+                                    <span className="text-zinc-500">{belum} belum</span>
+                                  ) : (
+                                    <span className="text-emerald-700 font-medium">Lengkap</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="hidden sm:table-cell px-3 py-3 text-center text-zinc-700 font-medium tabular-nums">
+                                {selesai} santri
+                              </td>
+                              <td className="hidden sm:table-cell px-3 py-3 text-center tabular-nums">
+                                {belum > 0 ? (
+                                  <span className="text-zinc-600">{belum} santri</span>
+                                ) : (
+                                  <span className="text-emerald-700 font-medium">Selesai</span>
+                                )}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right">
+                                <div className="flex items-center justify-end gap-1 sm:gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditUjian(ujian);
+                                    }}
+                                    className="p-1.5 rounded-md border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
+                                    title="Edit Nama / Tanggal Ujian"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenDeleteUjian(ujian);
+                                    }}
+                                    className="p-1.5 rounded-md border border-zinc-200 hover:border-rose-200 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                    title="Hapus Sesi Ujian"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEnterExam(ujian.id);
+                                    }}
+                                    className="px-2.5 sm:px-3 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-medium transition-colors inline-flex items-center gap-1 cursor-pointer whitespace-nowrap ml-0.5"
+                                  >
+                                    <span>Buka</span>
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
             {/* Modal Tambah Jadwal Ujian */}
             {isAddUjianOpen && (
-              <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg max-w-md w-full border border-zinc-200 shadow-xl p-5 space-y-4 animate-scale-in">
+              <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg max-w-md w-full border border-zinc-200 shadow-lg p-5 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                    <div>
-                      <h3 className="text-sm font-bold text-zinc-900">Tambah Tanggal Ujian</h3>
-                      <p className="text-xs text-zinc-500 mt-0.5">{selectedClass.name}</p>
-                    </div>
+                    <h3 className="text-sm font-bold text-zinc-900">Tambah Jadwal Ujian</h3>
                     <button
                       onClick={() => setIsAddUjianOpen(false)}
                       className="w-7 h-7 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 text-base cursor-pointer"
@@ -1053,31 +1609,31 @@ export default function HomeGuruEvaluationPage() {
                         Tanggal Ujian
                       </label>
                       <input
-                        type="text"
+                        type="date"
                         required
                         value={newTanggalUjian}
                         onChange={(e) => setNewTanggalUjian(e.target.value)}
-                        placeholder="Contoh: 24 Oktober 2026"
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] transition-all bg-white"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white cursor-pointer"
                       />
+                      {newTanggalUjian && (
+                        <p className="text-[11px] text-[#086288] font-medium mt-1">
+                          {formatTanggalIndo(newTanggalUjian)}
+                        </p>
+                      )}
                     </div>
 
                     <div>
                       <label className="block font-semibold text-zinc-700 mb-1">
-                        Nama / Jenis Sesi Ujian
+                        Nama Ujian
                       </label>
                       <input
                         type="text"
                         required
                         value={newNamaUjian}
                         onChange={(e) => setNewNamaUjian(e.target.value)}
-                        placeholder="Contoh: Ujian Tasmi' Juz 30 / Ujian Tengah Semester"
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] transition-all bg-white"
+                        placeholder="Contoh: Ujian Tasmi' Juz 30"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white"
                       />
-                    </div>
-
-                    <div className="p-3 rounded-md bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-600">
-                      Sesi ini akan memuat {selectedClass.santriList.length} santri terdaftar di {selectedClass.name} dengan status Belum Diuji.
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
@@ -1090,12 +1646,123 @@ export default function HomeGuruEvaluationPage() {
                       </button>
                       <button
                         type="submit"
-                        className="px-3.5 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white font-medium shadow-2xs cursor-pointer"
+                        className="px-3.5 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white font-medium cursor-pointer"
                       >
-                        Simpan Sesi Ujian
+                        Simpan
                       </button>
                     </div>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Edit Jadwal & Nama Ujian */}
+            {isEditUjianOpen && (
+              <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg max-w-md w-full border border-zinc-200 shadow-lg p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
+                    <h3 className="text-sm font-bold text-zinc-900">Edit Jadwal &amp; Nama Ujian</h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditUjianOpen(false)}
+                      className="w-7 h-7 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 text-base cursor-pointer"
+                    >
+                      &times;
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveEditUjian} className="space-y-3.5 text-xs">
+                    <div>
+                      <label className="block font-semibold text-zinc-700 mb-1">
+                        Tanggal Ujian
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={editTanggalUjian}
+                        onChange={(e) => setEditTanggalUjian(e.target.value)}
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white cursor-pointer"
+                      />
+                      {editTanggalUjian && (
+                        <p className="text-[11px] text-[#086288] font-medium mt-1">
+                          {formatTanggalIndo(editTanggalUjian)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-zinc-700 mb-1">
+                        Nama Ujian
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editNamaUjian}
+                        onChange={(e) => setEditNamaUjian(e.target.value)}
+                        placeholder="Contoh: Tasmi' Ujian Utama"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditUjianOpen(false)}
+                        className="px-3 py-1.5 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-medium cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingEditUjian}
+                        className="px-3.5 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white font-medium cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingEditUjian ? "Menyimpan..." : "Simpan Perubahan"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Konfirmasi Hapus Jadwal Ujian */}
+            {isDeleteUjianOpen && deleteUjianSession && (
+              <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg max-w-sm w-full border border-zinc-200 shadow-lg p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-zinc-900">Hapus Sesi Ujian</h3>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">Konfirmasi penghapusan</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-zinc-600 leading-relaxed">
+                    Apakah Anda yakin ingin menghapus sesi ujian <strong className="text-zinc-900 font-semibold">{deleteUjianSession.namaUjian}</strong> ({deleteUjianSession.tanggalUjian})? Seluruh riwayat dan data penilaian santri pada sesi ini akan ikut terhapus.
+                  </p>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDeleteUjianOpen(false);
+                        setDeleteUjianSession(null);
+                      }}
+                      className="px-3 py-1.5 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isDeletingUjian}
+                      onClick={handleConfirmDeleteUjian}
+                      className="px-3.5 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium cursor-pointer disabled:opacity-50"
+                    >
+                      {isDeletingUjian ? "Menghapus..." : "Hapus Ujian"}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1106,742 +1773,54 @@ export default function HomeGuruEvaluationPage() {
         {/* STEP 5: TABEL DAFTAR SANTRI PADA UJIAN TERPILIH        */}
         {/* ======================================================= */}
         {currentStep === "students" && selectedClass && selectedExam && (
-          <div className="space-y-5 animate-fade-in">
-            {/* Header Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
-              <div>
-                <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-1">
-                  <button onClick={() => setCurrentStep("class")} className="hover:text-[#086288] transition-colors cursor-pointer">
-                    {selectedClass.name}
-                  </button>
-                  <span>/</span>
-                  <button onClick={() => setCurrentStep("exams")} className="hover:text-[#086288] transition-colors cursor-pointer">
-                    Jadwal Ujian
-                  </button>
-                  <span>/</span>
-                  <span className="text-zinc-800 font-medium">{selectedExam.tanggalUjian}</span>
-                </div>
-                <h1 className="text-xl font-bold text-zinc-900 tracking-tight">
-                  {selectedExam.namaUjian} &bull; {selectedExam.tanggalUjian}
-                </h1>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  Kelas: <span className="text-zinc-700 font-medium">{selectedClass.name}</span> &bull; Penguji: <span className="text-zinc-700 font-medium">{selectedClass.wali}</span> &bull; Ruang: <span className="text-zinc-700 font-medium">{selectedClass.ruangan}</span>
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button
-                  onClick={() => setCurrentStep("exams")}
-                  className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-100 bg-white text-zinc-700 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Kembali ke Jadwal Ujian</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Metrics Bar (clean flat strip) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {(() => {
-                const total = selectedExam.santriList.length;
-                const completed = selectedExam.santriList.filter((s) => s.status === "Selesai").length;
-                const pending = total - completed;
-                const ratedList = selectedExam.santriList.filter((s) => s.nilai !== null);
-                const avg = ratedList.length > 0 ? (ratedList.reduce((acc, cur) => acc + (cur.nilai || 0), 0) / ratedList.length).toFixed(1) : "-";
-
-                return (
-                  <>
-                    <div className="bg-white rounded-lg p-3.5 border border-zinc-200">
-                      <div className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Total Santri</div>
-                      <div className="text-xl font-bold text-zinc-900 mt-0.5">{total}</div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3.5 border border-zinc-200">
-                      <div className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Sudah Diuji</div>
-                      <div className="text-xl font-bold text-emerald-700 mt-0.5">{completed}</div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3.5 border border-zinc-200">
-                      <div className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Belum Diuji</div>
-                      <div className="text-xl font-bold text-amber-700 mt-0.5">{pending}</div>
-                    </div>
-                    <div className="bg-white rounded-lg p-3.5 border border-zinc-200">
-                      <div className="text-[11px] text-zinc-500 font-medium uppercase tracking-wider">Rata-rata Nilai</div>
-                      <div className="text-xl font-bold text-[#086288] mt-0.5">{avg}</div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            {/* Student Table Card (Format: no, nama, status, aksi) */}
-            <div className="bg-white rounded-lg border border-zinc-200 shadow-2xs overflow-hidden">
-              {/* Table Toolbar */}
-              <div className="p-4 border-b border-zinc-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-zinc-50/50">
-                <div>
-                  <h2 className="text-sm font-bold text-zinc-900">Daftar Santri &amp; Penilaian Tilawah</h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Klik tombol <strong>Uji</strong> untuk memulai pencatatan kesalahan bacaan santri.
-                  </p>
-                </div>
-
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchSantri}
-                    onChange={(e) => setSearchSantri(e.target.value)}
-                    placeholder="Cari nama atau NIS santri..."
-                    className="w-full pl-8 pr-7 py-1.5 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] transition-all bg-white"
-                  />
-                  {searchSantri && (
-                    <button
-                      onClick={() => setSearchSantri("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-600 cursor-pointer"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Table with columns: no, nama, status, aksi */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-semibold uppercase tracking-wider text-[11px]">
-                    <tr>
-                      <th className="px-4 py-3 text-center w-14">No</th>
-                      <th className="px-5 py-3">Nama</th>
-                      <th className="px-5 py-3 w-52">Status</th>
-                      <th className="px-5 py-3 text-right w-56">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200/70">
-                    {filteredSantri.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-zinc-400">
-                          <p className="font-medium text-zinc-600">Tidak ada santri yang ditemukan</p>
-                          <p className="text-[11px] text-zinc-400 mt-1">Coba gunakan kata kunci pencarian yang lain.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredSantri.map((santri, index) => {
-                        const isCompleted = santri.status === "Selesai";
-                        return (
-                          <tr
-                            key={santri.id}
-                            className="hover:bg-zinc-50 transition-colors"
-                          >
-                            <td className="px-4 py-3.5 text-center font-mono text-zinc-400">
-                              {index + 1}
-                            </td>
-                            <td className="px-5 py-3.5">
-                              <div className="font-semibold text-zinc-900">
-                                {santri.nama}
-                              </div>
-                              <div className="text-[11px] text-zinc-500 mt-0.5 flex items-center gap-2">
-                                <span className="font-mono text-zinc-400">NIS: {santri.nis}</span>
-                                {santri.surahDibaca && (
-                                  <>
-                                    <span>&bull;</span>
-                                    <span>{santri.surahDibaca}</span>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5">
-                              {isCompleted ? (
-                                <div className="space-y-0.5">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Sudah Ujian
-                                  </span>
-                                  {santri.nilai !== null && (
-                                    <div className="text-[11px] text-zinc-600">
-                                      Nilai: <span className="font-bold text-zinc-900">{santri.nilai}</span> ({santri.predikat?.split(" ")[0]})
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-600 border border-zinc-200">
-                                  Belum Ujian
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              {!isCompleted ? (
-                                <button
-                                  onClick={() => handleOpenEvaluation(santri)}
-                                  className="px-3.5 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-medium transition-colors inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                                >
-                                  <span>Uji</span>
-                                  <ChevronRight className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
-                                <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => setPrintingSantri(santri)}
-                                    className="px-3 py-1.5 rounded-md border border-zinc-300 hover:border-zinc-400 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium transition-colors inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                                    title="Cetak Raport Tilawah"
-                                  >
-                                    <Printer className="w-3.5 h-3.5 text-zinc-500" />
-                                    <span>Cetak</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenEvaluation(santri)}
-                                    className="px-3 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-medium transition-colors inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                                    title="Uji Ulang Santri"
-                                  >
-                                    <RotateCcw className="w-3 h-3 text-[#FFEFC4]" />
-                                    <span>Uji Ulang</span>
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Table Footer info */}
-              <div className="px-5 py-3 border-t border-zinc-200 bg-zinc-50 text-[11px] text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-                <span>Menampilkan {filteredSantri.length} dari {selectedExam.santriList.length} santri</span>
-                <span className="text-zinc-400">Gunakan tombol Uji untuk santri yang belum, atau Cetak dan Uji Ulang untuk yang sudah selesai</span>
-              </div>
-            </div>
-
-            {/* Modal Cetak Raport Tilawah Santri */}
-            {printingSantri && (
-              <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg max-w-lg w-full border border-zinc-300 shadow-2xl p-6 space-y-4 animate-scale-in">
-                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                    <div>
-                      <h3 className="text-sm font-bold text-zinc-900">Lembar Hasil Ujian Tilawah Santri</h3>
-                      <p className="text-xs text-zinc-500 mt-0.5">Raport Qur&apos;an Digital &bull; {selectedExam.namaUjian}</p>
-                    </div>
-                    <button
-                      onClick={() => setPrintingSantri(null)}
-                      className="w-7 h-7 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 text-base cursor-pointer"
-                    >
-                      &times;
-                    </button>
-                  </div>
-
-                  {/* Print Document Preview Body */}
-                  <div className="border border-zinc-200 rounded p-4 bg-zinc-50/50 space-y-3 text-xs text-zinc-800 font-sans">
-                    {/* Header Kop */}
-                    <div className="text-center pb-2.5 border-b border-zinc-200">
-                      <div className="font-bold text-sm tracking-wide text-[#086288] uppercase">Pesantren Ilmu Al-Qur&apos;an</div>
-                      <div className="text-[11px] text-zinc-500">Lembaga Mutaba&apos;ah &amp; Penilaian Tilawah Qur&apos;ani</div>
-                    </div>
-
-                    {/* Metadata Table */}
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div>
-                        <span className="text-zinc-400 block">Nama Santri:</span>
-                        <span className="font-bold text-zinc-900">{printingSantri.nama}</span>
-                      </div>
-                      <div>
-                        <span className="text-zinc-400 block">NIS:</span>
-                        <span className="font-mono text-zinc-700">{printingSantri.nis}</span>
-                      </div>
-                      <div>
-                        <span className="text-zinc-400 block">Kelas:</span>
-                        <span className="text-zinc-800">{selectedClass.name}</span>
-                      </div>
-                      <div>
-                        <span className="text-zinc-400 block">Tanggal Ujian:</span>
-                        <span className="text-zinc-800">{selectedExam.tanggalUjian}</span>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-zinc-400 block">Materi Ujian (Surah/Ayat):</span>
-                        <span className="font-semibold text-zinc-800">{printingSantri.surahDibaca || "-"}</span>
-                      </div>
-                    </div>
-
-                    {/* Result Box */}
-                    <div className="p-3 bg-white rounded border border-zinc-200 flex items-center justify-between">
-                      <div>
-                        <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Skor Tilawah</div>
-                        <div className="text-2xl font-extrabold text-[#086288]">{printingSantri.nilai !== null ? printingSantri.nilai : "-"} <span className="text-xs font-normal text-zinc-400">/ 100</span></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Predikat Kelulusan</div>
-                        <div className="text-xs font-bold text-zinc-900 mt-1">{printingSantri.predikat || "-"}</div>
-                      </div>
-                    </div>
-
-                    {/* Error breakdown */}
-                    <div className="text-[11px] space-y-1">
-                      <span className="text-zinc-500 font-semibold block">Catatan Bimbingan Ustadz:</span>
-                      <div className="p-2.5 bg-white rounded border border-zinc-200 text-zinc-600">
-                        {printingSantri.catatanGuru || "Bacaan tartil, makhraj dan tajwid konsisten."} (Total temuan kesalahan: {printingSantri.totalKesalahan})
-                      </div>
-                    </div>
-
-                    {/* Signature */}
-                    <div className="pt-3 flex justify-between text-[11px] text-zinc-600">
-                      <div>
-                        <span>Wali Santri</span>
-                        <div className="h-9"></div>
-                        <span className="border-t border-zinc-400 pt-0.5 block w-24 text-center">(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)</span>
-                      </div>
-                      <div className="text-right">
-                        <span>Penguji / Ustadz</span>
-                        <div className="h-9"></div>
-                        <span className="border-t border-zinc-400 pt-0.5 block w-28 text-center font-semibold">{selectedClass.wali}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-zinc-200">
-                    <button
-                      type="button"
-                      onClick={() => setPrintingSantri(null)}
-                      className="px-3 py-1.5 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
-                    >
-                      Tutup
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.print();
-                      }}
-                      className="px-4 py-1.5 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Cetak Raport</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <StudentsStepView
+            selectedClass={selectedClass}
+            selectedExam={selectedExam}
+            filteredSantri={filteredSantri}
+            searchSantri={searchSantri}
+            setSearchSantri={setSearchSantri}
+            printingSantri={printingSantri}
+            setPrintingSantri={setPrintingSantri}
+            kepalaMadrasah={kepalaMadrasah}
+            semesterLabel={semesterLabel}
+            setCurrentStep={handleNavigateStep}
+            handleOpenEvaluation={handleOpenEvaluation}
+          />
         )}
 
         {/* ======================================================= */}
         {/* STEP 6: PENCATATAN KESALAHAN BACAAN SANTRI             */}
         {/* ======================================================= */}
         {currentStep === "evaluation" && selectedClass && selectedExam && activeSantri && (
-          <div className="space-y-5 animate-fade-in">
-            {/* Top Navigation Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200">
-              <div>
-                <div className="flex items-center gap-1.5 text-xs text-zinc-500 mb-1">
-                  <button onClick={() => setCurrentStep("exams")} className="hover:text-[#086288] transition-colors cursor-pointer">
-                    Jadwal Ujian
-                  </button>
-                  <span>/</span>
-                  <button onClick={() => setCurrentStep("students")} className="hover:text-[#086288] transition-colors cursor-pointer">
-                    Daftar Santri ({selectedExam.tanggalUjian})
-                  </button>
-                  <span>/</span>
-                  <span className="text-zinc-800 font-medium">Penilaian: {activeSantri.nama}</span>
-                </div>
-                <h1 className="text-xl font-bold text-zinc-900 tracking-tight">
-                  Penilaian Tilawah: {activeSantri.nama}
-                </h1>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  NIS: <span className="font-mono text-zinc-700">{activeSantri.nis}</span> &bull; Kelas: {selectedClass.name} &bull; Sesi: {selectedExam.namaUjian}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <button
-                  onClick={() => setCurrentStep("students")}
-                  className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-100 bg-white text-zinc-700 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Kembali ke Daftar Santri</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Score Strip */}
-            <div className="bg-white rounded-lg p-4 border border-zinc-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[#086288] text-white flex items-center justify-center font-bold text-sm shrink-0">
-                  {activeSantri.nama.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-zinc-900">{activeSantri.nama}</h2>
-                  <p className="text-xs text-zinc-500">Lembar Penilaian &amp; Pencatatan Tajwid Santri</p>
-                </div>
-              </div>
-
-              {/* Scorecard */}
-              <div className="flex items-center gap-4 divide-x divide-zinc-200 self-start sm:self-auto">
-                <div className="text-left pr-3">
-                  <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Total Temuan</div>
-                  <div className="text-lg font-bold text-zinc-900 mt-0.5">{totalErrors} <span className="text-xs font-normal text-zinc-500">kesalahan</span></div>
-                </div>
-                <div className="text-left px-3">
-                  <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Skor Terhitung</div>
-                  <div className="text-xl font-bold text-[#086288] mt-0.5">{calculatedScore} <span className="text-xs font-normal text-zinc-400">/ 100</span></div>
-                </div>
-                <div className="text-left pl-3">
-                  <div className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">Predikat</div>
-                  <div className="text-xs font-bold text-zinc-900 mt-1">{getPredikat(calculatedScore)}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Assessment Session Form */}
-            <div className="bg-white rounded-lg p-5 border border-zinc-200 shadow-2xs space-y-5">
-              {/* Surah & Sesi Controls */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pb-5 border-b border-zinc-200">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                    Surah &amp; Ayat yang Disimak
-                  </label>
-                  <input
-                    type="text"
-                    value={surahAyat}
-                    onChange={(e) => setSurahAyat(e.target.value)}
-                    placeholder="Contoh: Surah Al-Buruj: 1-22"
-                    className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] transition-all bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                    Kategori Sesi Ujian
-                  </label>
-                  <select
-                    value={tipeSesi}
-                    onChange={(e) => setTipeSesi(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] transition-all bg-white text-zinc-800"
-                  >
-                    <option>Tasmi&apos; Ujian Resmi</option>
-                    <option>Talaqqi Setoran Harian</option>
-                    <option>Ujian Tengah Semester (UTS)</option>
-                    <option>Ujian Akhir Semester (UAS)</option>
-                    <option>Murojaah Mandiri Terbimbing</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Error Logging Section Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                    Parameter Penilaian Tajwid
-                  </h3>
-                  <p className="text-xs text-zinc-500 mt-0.5">
-                    Gunakan tombol hitung (+) saat menemukan kesalahan tilawah. Skor terhitung otomatis.
-                  </p>
-                </div>
-
-                {totalErrors > 0 && (
-                  <button
-                    onClick={handleResetCounters}
-                    className="text-xs text-zinc-500 hover:text-rose-600 transition-colors flex items-center gap-1 font-medium cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Temuan</span>
-                  </button>
-                )}
-              </div>
-
-              {/* 6 Tajwid Error Counters Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {/* 1. Makhorijul Huruf */}
-                <div className="p-3.5 rounded-lg border border-zinc-200 hover:border-zinc-300 transition-colors bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-zinc-900">1. Makhorijul Huruf</h4>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Makhraj tertukar / kurang tepat</p>
-                      </div>
-                      <div className="flex items-center border border-zinc-300 rounded overflow-hidden">
-                        <button
-                          onClick={() => handleAdjustError("makhorij", -1)}
-                          disabled={errorCounters.makhorij === 0}
-                          className="w-7 h-7 flex items-center justify-center text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold text-zinc-900 tabular-nums">
-                          {errorCounters.makhorij}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustError("makhorij", 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-[#086288] text-white hover:bg-[#064a67] cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 mt-2.5 border-t border-zinc-100 flex flex-wrap gap-1">
-                    {["+ع vs ء", "+ح vs هـ", "+ص vs س", "+ط vs ت", "+ض vs د", "+ذ vs ز"].map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddQuickTag(tag)}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 2. Shifatul Huruf */}
-                <div className="p-3.5 rounded-lg border border-zinc-200 hover:border-zinc-300 transition-colors bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-zinc-900">2. Shifatul Huruf</h4>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Hams, qalqalah, tafkhim/tarqiq</p>
-                      </div>
-                      <div className="flex items-center border border-zinc-300 rounded overflow-hidden">
-                        <button
-                          onClick={() => handleAdjustError("shifat", -1)}
-                          disabled={errorCounters.shifat === 0}
-                          className="w-7 h-7 flex items-center justify-center text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold text-zinc-900 tabular-nums">
-                          {errorCounters.shifat}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustError("shifat", 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-[#086288] text-white hover:bg-[#064a67] cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 mt-2.5 border-t border-zinc-100 flex flex-wrap gap-1">
-                    {["+Hams kurang", "+Qalqalah mati", "+Isti'la tipis", "+Tafkhim kurang"].map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddQuickTag(tag)}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 3. Ahkamul Mad wal Qashr */}
-                <div className="p-3.5 rounded-lg border border-zinc-200 hover:border-zinc-300 transition-colors bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-zinc-900">3. Ahkamul Mad wal Qashr</h4>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Kadar harakat mad kurang/lebih</p>
-                      </div>
-                      <div className="flex items-center border border-zinc-300 rounded overflow-hidden">
-                        <button
-                          onClick={() => handleAdjustError("mad", -1)}
-                          disabled={errorCounters.mad === 0}
-                          className="w-7 h-7 flex items-center justify-center text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold text-zinc-900 tabular-nums">
-                          {errorCounters.mad}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustError("mad", 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-[#086288] text-white hover:bg-[#064a67] cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 mt-2.5 border-t border-zinc-100 flex flex-wrap gap-1">
-                    {["+Mad Thobi'i < 2h", "+Mad Wajib < 4h", "+Mad Jaiz timpang", "+Mad 'Aridh berlebih"].map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddQuickTag(tag)}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 4. Nun & Mim Mati / Ghunnah */}
-                <div className="p-3.5 rounded-lg border border-zinc-200 hover:border-zinc-300 transition-colors bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-zinc-900">4. Nun &amp; Mim Mati / Ghunnah</h4>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Ikhfa, Idgham, Iqlab, Idzhar</p>
-                      </div>
-                      <div className="flex items-center border border-zinc-300 rounded overflow-hidden">
-                        <button
-                          onClick={() => handleAdjustError("nunMim", -1)}
-                          disabled={errorCounters.nunMim === 0}
-                          className="w-7 h-7 flex items-center justify-center text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold text-zinc-900 tabular-nums">
-                          {errorCounters.nunMim}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustError("nunMim", 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-[#086288] text-white hover:bg-[#064a67] cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 mt-2.5 border-t border-zinc-100 flex flex-wrap gap-1">
-                    {["+Ikhfa tidak dengung", "+Idgham lepas", "+Iqlab kurang mim", "+Idzhar mantul"].map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddQuickTag(tag)}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 5. Waqaf & Ibtida' */}
-                <div className="p-3.5 rounded-lg border border-zinc-200 hover:border-zinc-300 transition-colors bg-white flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-zinc-900">5. Waqaf &amp; Ibtida&apos;</h4>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">Salah waqaf, nafas putus, lupa ayat</p>
-                      </div>
-                      <div className="flex items-center border border-zinc-300 rounded overflow-hidden">
-                        <button
-                          onClick={() => handleAdjustError("waqaf", -1)}
-                          disabled={errorCounters.waqaf === 0}
-                          className="w-7 h-7 flex items-center justify-center text-zinc-600 hover:bg-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold text-zinc-900 tabular-nums">
-                          {errorCounters.waqaf}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustError("waqaf", 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-[#086288] text-white hover:bg-[#064a67] cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 mt-2.5 border-t border-zinc-100 flex flex-wrap gap-1">
-                    {["+Waqaf potong makna", "+Ibtida keliru", "+Tawaqquf/Lupa"].map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddQuickTag(tag)}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 6. Lahn Jali */}
-                <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/20 hover:border-rose-300 transition-colors flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-xs font-bold text-rose-900">6. Lahn Jali</h4>
-                          <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-rose-100 text-rose-700">Fatal</span>
-                        </div>
-                        <p className="text-[11px] text-rose-700/80 mt-0.5">Salah baris harakat, huruf tertukar</p>
-                      </div>
-                      <div className="flex items-center border border-rose-300 rounded overflow-hidden bg-white">
-                        <button
-                          onClick={() => handleAdjustError("lahnJali", -1)}
-                          disabled={errorCounters.lahnJali === 0}
-                          className="w-7 h-7 flex items-center justify-center text-rose-700 hover:bg-rose-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-7 text-center text-xs font-bold text-rose-700 tabular-nums">
-                          {errorCounters.lahnJali}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustError("lahnJali", 1)}
-                          className="w-7 h-7 flex items-center justify-center bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-2.5 mt-2.5 border-t border-rose-100 flex flex-wrap gap-1">
-                    {["+Salah harakat", "+Huruf tertukar", "+Ayat terlewat"].map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleAddQuickTag(tag)}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 transition-colors cursor-pointer"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes / Catatan Ustadz */}
-              <div className="pt-1">
-                <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                  Catatan Pembinaan Tilawah
-                </label>
-                <textarea
-                  rows={2}
-                  value={catatanUstadz}
-                  onChange={(e) => setCatatanUstadz(e.target.value)}
-                  placeholder="Tambahkan catatan khusus evaluasi bacaan atau target perbaikan..."
-                  className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] transition-all text-zinc-800 bg-white"
-                />
-              </div>
-
-              {/* Bottom Actions */}
-              <div className="pt-3 border-t border-zinc-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                <button
-                  onClick={() => setCurrentStep("students")}
-                  className="w-full sm:w-auto px-3.5 py-2 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-medium transition-colors cursor-pointer"
-                >
-                  Batal / Kembali ke Tabel
-                </button>
-
-                <button
-                  onClick={handleSaveEvaluation}
-                  className="w-full sm:w-auto px-5 py-2 rounded-md bg-[#086288] hover:bg-[#064a67] text-white text-xs font-semibold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Save className="w-3.5 h-3.5 text-[#FFEFC4]" />
-                  <span>Simpan Evaluasi Santri</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <EvaluationFormView
+            activeSantri={activeSantri}
+            surahAyat={surahAyat}
+            setSurahAyat={setSurahAyat}
+            tipeSesi={tipeSesi}
+            setTipeSesi={setTipeSesi}
+            catatanUstadz={catatanUstadz}
+            setCatatanUstadz={setCatatanUstadz}
+            errorCounters={errorCounters}
+            totalErrors={totalErrors}
+            calculatedScore={calculatedScore}
+            setCurrentStep={handleNavigateStep}
+            handleAdjustError={handleAdjustError}
+            handleToggleMakhorijLetter={handleToggleMakhorijLetter}
+            handleAddQuickTag={handleAddQuickTag}
+            handleResetCounters={handleResetCounters}
+            handleSaveEvaluation={handleSaveEvaluation}
+          />
         )}
       </main>
 
       {/* ========================================================= */}
       {/* FOOTER                                                    */}
       {/* ========================================================= */}
-      <footer className="mt-auto bg-white border-t border-zinc-200/80 py-4 px-4 sm:px-6 lg:px-8 text-xs text-zinc-500">
+      <footer className="no-print mt-auto bg-white border-t border-zinc-200/80 py-4 px-4 sm:px-6 lg:px-8 text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-center sm:text-left">
           <p className="font-medium text-zinc-600">
-            &copy; 2026 <span className="font-semibold text-[#086288]">Raport Qur&apos;an Digital</span> • Muharrik Pesantren Ilmu Al-Qur&apos;an
-          </p>
-          <p className="text-zinc-400">
-            Sistem Pencatatan &amp; Mutaba&apos;ah Tilawah Santri
+            &copy; 2026 <span className="font-semibold text-[#086288]">Raport Qur&apos;an Digital</span>{" "}
+            • Muharrik Al Quran Pesantren Ilmu Al-Qur&apos;an
           </p>
         </div>
       </footer>

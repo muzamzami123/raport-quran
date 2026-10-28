@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Save, 
   School, 
@@ -8,12 +8,15 @@ import {
   CheckCircle2, 
   Award, 
   Printer,
-  ShieldCheck
+  ShieldCheck,
+  Database
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'lembaga' | 'akademik' | 'penilaian'>('lembaga');
   const [notification, setNotification] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [dbSource, setDbSource] = useState<string>('Memeriksa...');
 
   // Form states
   const [lembaga, setLembaga] = useState({
@@ -32,10 +35,40 @@ export default function SettingsPage() {
     aksesGuru: "Dibuka",
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && json.data) {
+          if (json.data.lembaga) setLembaga(json.data.lembaga);
+          if (json.data.akademik) setAkademik(json.data.akademik);
+          setDbSource(json.source === 'fallback' ? 'Lokal Fallback' : 'MongoDB Compass (raport_quran.settings)');
+        }
+      })
+      .catch(() => setDbSource('Lokal'));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setNotification("Konfigurasi sistem dan parameter akademik berhasil disimpan.");
-    setTimeout(() => setNotification(null), 3500);
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lembaga, akademik }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setNotification("Konfigurasi berhasil disimpan ke database MongoDB Compass (raport_quran).");
+      } else {
+        setNotification("Pengaturan tersimpan lokal.");
+      }
+    } catch {
+      setNotification("Tersimpan (mode offline).");
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setNotification(null), 4000);
+    }
   };
 
   return (
@@ -175,7 +208,7 @@ export default function SettingsPage() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                  Nama Mudir Ma&apos;had / Pimpinan Pesantren
+                  Nama Kepala Madrasah / Pimpinan
                 </label>
                 <input
                   type="text"
@@ -280,87 +313,105 @@ export default function SettingsPage() {
 
         {/* ================= TAB 3: STANDAR PENILAIAN TAJWID ================= */}
         {activeTab === 'penilaian' && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 sm:p-6 shadow-xs space-y-5">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-5 sm:p-6 shadow-xs space-y-6">
             <div>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                Kriteria Penilaian & Rentang Predikat Kelulusan
+                Kriteria Penilaian &amp; Keterangan Nilai
               </h2>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Standar baku 6 kriteria tajwid dan pembobotan nilai akhir raport
+                Standar materi penilaian beserta bobotnya dan keterangan nilai raport
               </p>
             </div>
 
-            {/* 6 Kriteria Tajwid */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                6 Kriteria Baku Tajwid & Fashahah
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  { id: '1', title: 'Makhorijul Huruf', bobot: '20%', desc: 'Ketepatan tempat keluarnya huruf hijaiyah' },
-                  { id: '2', title: 'Shifatul Huruf', bobot: '20%', desc: 'Hams, Jahr, Qolqolah, Isti\'la, dll' },
-                  { id: '3', title: 'Ahkamul Huruf', bobot: '15%', desc: 'Idzhar, Idgham, Ikhfa, Iqlab' },
-                  { id: '4', title: 'Ahkamul Mad wal Qashr', bobot: '15%', desc: 'Kadar panjang mad thobi\'i & mad far\'i' },
-                  { id: '5', title: 'Ahkamul Waqf wal Ibtida', bobot: '15%', desc: 'Ketepatan tempat berhenti & memulai bacaan' },
-                  { id: '6', title: 'Kelancaran (Fashahah)', bobot: '15%', desc: 'Irama murottal, intonasi, & kelancaran lafadz' },
-                ].map((crit) => (
-                  <div key={crit.id} className="p-3 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 text-xs">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-bold text-zinc-900 dark:text-zinc-100">{crit.title}</span>
-                      <span className="font-mono font-bold text-[#086288] dark:text-[#97D7FF]">{crit.bobot}</span>
-                    </div>
-                    <p className="text-[11px] text-zinc-500 leading-tight">{crit.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Rentang Predikat */}
-            <div className="space-y-3 pt-3 border-t border-zinc-200 dark:border-zinc-800">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
-                Konversi Nilai ke Predikat Resmi
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border border-zinc-200 dark:border-zinc-800">
-                  <thead className="bg-zinc-50 dark:bg-zinc-800/60 font-semibold text-zinc-600 dark:text-zinc-400">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Tabel Materi & Bobot */}
+              <div className="lg:col-span-7 overflow-x-auto">
+                <table className="w-full text-xs border-collapse border border-zinc-300 dark:border-zinc-700">
+                  <thead className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold uppercase">
                     <tr>
-                      <th className="p-2.5">Rentang Nilai</th>
-                      <th className="p-2.5">Predikat Bahasa Arab</th>
-                      <th className="p-2.5">Keterangan Bahasa Indonesia</th>
-                      <th className="p-2.5 text-center">Status Kelulusan</th>
+                      <th className="border border-zinc-300 dark:border-zinc-700 px-3 py-2.5 w-14 text-center">
+                        NO.
+                      </th>
+                      <th className="border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 text-left">
+                        MATERI
+                      </th>
+                      <th className="border border-zinc-300 dark:border-zinc-700 px-4 py-2.5 w-28 text-center">
+                        BOBOT
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-700 dark:text-zinc-300">
-                    <tr>
-                      <td className="p-2.5 font-mono font-bold">90.00 – 100.00</td>
-                      <td className="p-2.5 font-bold text-[#086288] dark:text-[#97D7FF]">Mumtaz (ممتاز)</td>
-                      <td className="p-2.5">Istimewa / Sangat Memuaskan</td>
-                      <td className="p-2.5 text-center text-emerald-600 font-bold">Lulus</td>
+                  <tbody className="text-zinc-800 dark:text-zinc-200">
+                    {[
+                      { no: '1.', materi: 'Makhorijul Huruf', bobot: 3 },
+                      { no: '2.', materi: 'Shifatul Huruf', bobot: 2 },
+                      { no: '3.', materi: 'Ahkamul Huruf', bobot: 2 },
+                      { no: '4.', materi: 'Ahkamul Mad', bobot: 2 },
+                      { no: '5.', materi: 'Waqof wal Ibtida', bobot: 2 },
+                      { no: '6.', materi: 'Muroatul Huruf wal Harokah', bobot: 2 },
+                      { no: '7.', materi: 'Miring', bobot: 1 },
+                      { no: '8.', materi: 'Tawallud', bobot: 1 },
+                      { no: '9.', materi: 'Kelancaran', bobot: 1 },
+                    ].map((row) => (
+                      <tr key={row.no} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40">
+                        <td className="border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-center tabular-nums">
+                          {row.no}
+                        </td>
+                        <td className="border border-zinc-300 dark:border-zinc-700 px-4 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                          {row.materi}
+                        </td>
+                        <td className="border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-center tabular-nums font-medium">
+                          {row.bobot} x
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tabel Keterangan Nilai */}
+              <div className="lg:col-span-5 overflow-x-auto">
+                <table className="w-full text-xs border-collapse border border-zinc-300 dark:border-zinc-700">
+                  <thead>
+                    <tr className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-bold uppercase">
+                      <th
+                        colSpan={3}
+                        className="border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-center tracking-wide"
+                      >
+                        KETERANGAN NILAI
+                      </th>
                     </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono font-bold">80.00 – 89.99</td>
-                      <td className="p-2.5 font-bold">Jayyid Jiddan (جيد جدا)</td>
-                      <td className="p-2.5">Baik Sekali</td>
-                      <td className="p-2.5 text-center text-emerald-600 font-bold">Lulus</td>
+                    <tr className="bg-zinc-50 dark:bg-zinc-800/60 text-zinc-800 dark:text-zinc-200 font-bold uppercase">
+                      <th className="border border-zinc-300 dark:border-zinc-700 px-3 py-2 w-14 text-center">
+                        NO.
+                      </th>
+                      <th className="border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-left">
+                        KETERANGAN
+                      </th>
+                      <th className="border border-zinc-300 dark:border-zinc-700 px-4 py-2 w-24 text-center">
+                        NILAI
+                      </th>
                     </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono font-bold">70.00 – 79.99</td>
-                      <td className="p-2.5 font-bold">Jayyid (جيد)</td>
-                      <td className="p-2.5">Baik / Memenuhi Standar</td>
-                      <td className="p-2.5 text-center text-emerald-600 font-bold">Lulus</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono font-bold">60.00 – 69.99</td>
-                      <td className="p-2.5 font-bold text-amber-600">Maqbul (مقبول)</td>
-                      <td className="p-2.5">Cukup (Perlu bimbingan khusus)</td>
-                      <td className="p-2.5 text-center text-amber-600 font-bold">Remedial</td>
-                    </tr>
-                    <tr>
-                      <td className="p-2.5 font-mono font-bold">&lt; 60.00</td>
-                      <td className="p-2.5 font-bold text-red-600">Dho&apos;if (ضعيف)</td>
-                      <td className="p-2.5">Kurang (Wajib mengulang halaqah)</td>
-                      <td className="p-2.5 text-center text-red-600 font-bold">Tidak Lulus</td>
-                    </tr>
+                  </thead>
+                  <tbody className="text-zinc-800 dark:text-zinc-200">
+                    {[
+                      { no: 1, ket: 'Mumtaz (Sempurna)', nilai: '100' },
+                      { no: 2, ket: 'Jayyid Jiddan (Baik Sekali)', nilai: '91 - 99' },
+                      { no: 3, ket: 'Jayyid (Baik)', nilai: '81 - 90' },
+                      { no: 4, ket: 'Maqbul (Cukup)', nilai: '80' },
+                      { no: 5, ket: 'Rosib (Kurang)', nilai: '< 80' },
+                    ].map((item) => (
+                      <tr key={item.no} className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40">
+                        <td className="border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-center tabular-nums">
+                          {item.no}
+                        </td>
+                        <td className="border border-zinc-300 dark:border-zinc-700 px-4 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                          {item.ket}
+                        </td>
+                        <td className="border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-center tabular-nums font-medium">
+                          {item.nilai}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

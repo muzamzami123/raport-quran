@@ -97,7 +97,7 @@ export default function AdminDashboard() {
           <div className="space-y-1">
             <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">1,248</div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              12 Rombel aktif • 6 jenjang halaqah
+              12 Kelas aktif • 6 jenjang halaqah
             </p>
           </div>
         </div>
