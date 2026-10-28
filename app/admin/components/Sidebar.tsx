@@ -94,7 +94,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             onClick={onClose}
           >
             <Image
-              src="/logo-piq.png"
+              src="/logo.png"
               alt="Logo Pesantren Ilmu Al-Qur'an"
               width={36}
               height={36}

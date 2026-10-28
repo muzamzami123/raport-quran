@@ -358,7 +358,7 @@ export function StudentsStepView({
                 <div className="relative flex items-center justify-center pb-2.5 border-b-4 border-double border-black">
                   <div className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2">
                     <Image
-                      src="/logo-piq.png"
+                      src="/logo.png"
                       alt="Logo PIQ"
                       width={68}
                       height={68}

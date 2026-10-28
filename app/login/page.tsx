@@ -81,7 +81,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center text-center mb-6">
             <div className="w-16 h-16 mb-3 relative flex items-center justify-center">
               <Image
-                src="/logo-piq.png"
+                src="/logo.png"
                 alt="Logo Pesantren Ilmu Al-Qur'an"
                 width={64}
                 height={64}

@@ -1036,7 +1036,7 @@ export default function HomeGuruEvaluationPage() {
                 title="Beranda"
               >
                 <Image
-                  src="/logo-piq.png"
+                  src="/logo.png"
                   alt="Logo Pesantren Ilmu Al-Qur'an"
                   width={40}
                   height={40}
