@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import HomeGuruEvaluationPage from "@/app/page";
 
-export const dynamic = "force-dynamic";
 export const instant = false;
 
 export default function ProgramDynamicRoutePage() {
