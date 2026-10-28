@@ -36,9 +36,7 @@ export async function GET() {
     const doc = await col.findOne({ id: 'system_settings' });
     
     if (!doc) {
-      // Seed default settings into MongoDB Compass
-      await col.insertOne({ ...defaultSettings, createdAt: new Date() });
-      return NextResponse.json({ success: true, data: defaultSettings, source: 'mongodb-seeded' });
+      return NextResponse.json({ success: true, data: defaultSettings, source: 'default' });
     }
 
     return NextResponse.json({ success: true, data: doc, source: 'mongodb' });

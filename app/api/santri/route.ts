@@ -1,71 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getSantriCollection, getSettingsCollection } from '@/lib/mongodb';
+import { getSantriCollection } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-
-// Initial seed data if collection is empty
-const defaultSantriList = [
-  // Kelas 1
-  { id: '1', nis: '202601001', nama: 'Ahmad Zaki Al-Faruq', jenjang: 'Kelas 1', kelas: '-' },
-  { id: '2', nis: '202601002', nama: 'Fatimah Az-Zahra', jenjang: 'Kelas 1', kelas: '-' },
-  { id: '3', nis: '202601003', nama: 'Zaid bin Tsabit', jenjang: 'Kelas 1', kelas: '-' },
-  { id: '4', nis: '202601004', nama: 'Bilal bin Rabah', jenjang: 'Kelas 1', kelas: '-' },
-  // Kelas 2
-  { id: '5', nis: '202602005', nama: 'Muhammad Umar Said', jenjang: 'Kelas 2', kelas: '-' },
-  { id: '6', nis: '202602006', nama: 'Aisyah Humaira', jenjang: 'Kelas 2', kelas: '-' },
-  { id: '7', nis: '202602007', nama: 'Ali Zainal Abidin', jenjang: 'Kelas 2', kelas: '-' },
-  // Kelas 3
-  { id: '8', nis: '202603008', nama: 'Aisyah Putri Nabila', jenjang: 'Kelas 3', kelas: '-' },
-  { id: '9', nis: '202603009', nama: 'Salman Al-Farisi', jenjang: 'Kelas 3', kelas: '-' },
-  { id: '10', nis: '202603010', nama: 'Hafshah binti Umar', jenjang: 'Kelas 3', kelas: '-' },
-  // Kelas 4
-  { id: '11', nis: '202604011', nama: 'Ibrahim Ali Basayev', jenjang: 'Kelas 4', kelas: '-' },
-  { id: '12', nis: '202604012', nama: 'Khalid bin Walid', jenjang: 'Kelas 4', kelas: '-' },
-  // Kelas 5
-  { id: '13', nis: '202605013', nama: 'Abdullah bin Mas\'ud', jenjang: 'Kelas 5', kelas: '-' },
-  { id: '14', nis: '202605014', nama: 'Zubair bin Awwam', jenjang: 'Kelas 5', kelas: '-' },
-  // Kelas 6
-  { id: '15', nis: '202606015', nama: 'Maryam Khadijah', jenjang: 'Kelas 6', kelas: '-' },
-  { id: '16', nis: '202606016', nama: 'Usamah bin Zaid', jenjang: 'Kelas 6', kelas: '-' },
-];
 
 export async function GET() {
   try {
     const col = await getSantriCollection();
-
-    // Pastikan seeding awal hanya terjadi SEKALI dan idempotent terhadap request paralel
-    try {
-      const settingsCol = await getSettingsCollection();
-      const seedRecord = await settingsCol.findOne({ key: 'santri_seeded' });
-      if (!seedRecord) {
-        const count = await col.countDocuments();
-        if (count === 0) {
-          const now = new Date();
-          await col.bulkWrite(
-            defaultSantriList.map((s) => ({
-              updateOne: {
-                filter: { id: s.id },
-                update: {
-                  $setOnInsert: {
-                    ...s,
-                    createdAt: now,
-                    updatedAt: now,
-                  },
-                },
-                upsert: true,
-              },
-            }))
-          );
-        }
-        await settingsCol.updateOne(
-          { key: 'santri_seeded' },
-          { $setOnInsert: { key: 'santri_seeded', seededAt: new Date() } },
-          { upsert: true }
-        );
-      }
-    } catch {
-      // Abaikan jika settings gagal diakses
-    }
-
     const docs = await col.find({}).sort({ createdAt: -1, id: 1 }).toArray();
 
     // Bersihkan dokumen duplikat dengan id yang sama (misal akibat double-seed sebelumnya)
@@ -118,13 +57,12 @@ export async function GET() {
     return NextResponse.json({ success: true, data: santri, source: 'mongodb' });
   } catch (error: any) {
     console.error('MongoDB GET error:', error?.message);
-    // Return fallback data with connection status warning
     return NextResponse.json({ 
-      success: true, 
-      data: defaultSantriList, 
-      source: 'fallback',
-      warning: 'Koneksi MongoDB Atlas memerlukan IP Whitelist (0.0.0.0/0).'
-    });
+      success: false, 
+      data: [], 
+      error: error?.message,
+      source: 'mongodb',
+    }, { status: 500 });
   }
 }
 
@@ -159,14 +97,11 @@ export async function POST(request: Request) {
         source: 'mongodb'
       });
     } catch (dbErr: any) {
-      console.warn('MongoDB POST fallback:', dbErr?.message);
-      // Return simulated success with memory data
+      console.error('MongoDB POST Santri error:', dbErr?.message);
       return NextResponse.json({
-        success: true,
-        data: newSantri,
-        source: 'fallback',
-        warning: 'Data disimpan lokal (Koneksi MongoDB Atlas belum terhubung).'
-      });
+        success: false,
+        error: dbErr?.message || 'Gagal menyimpan santri ke database',
+      }, { status: 500 });
     }
   } catch (error: any) {
     return NextResponse.json(
@@ -212,8 +147,8 @@ export async function PUT(request: Request) {
 
       return NextResponse.json({ success: true, source: 'mongodb' });
     } catch (dbErr: any) {
-      console.warn('MongoDB PUT fallback:', dbErr?.message);
-      return NextResponse.json({ success: true, source: 'fallback' });
+      console.error('MongoDB PUT Santri error:', dbErr?.message);
+      return NextResponse.json({ success: false, error: dbErr?.message || 'Gagal memperbarui santri di database' }, { status: 500 });
     }
   } catch (error: any) {
     return NextResponse.json(
@@ -245,8 +180,8 @@ export async function DELETE(request: Request) {
       await col.deleteOne(query);
       return NextResponse.json({ success: true, source: 'mongodb' });
     } catch (dbErr: any) {
-      console.warn('MongoDB DELETE fallback:', dbErr?.message);
-      return NextResponse.json({ success: true, source: 'fallback' });
+      console.error('MongoDB DELETE Santri error:', dbErr?.message);
+      return NextResponse.json({ success: false, error: dbErr?.message || 'Gagal menghapus santri dari database' }, { status: 500 });
     }
   } catch (error: any) {
     return NextResponse.json(

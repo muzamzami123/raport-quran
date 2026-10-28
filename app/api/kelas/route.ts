@@ -1,35 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getKelasCollection, getSettingsCollection, getGuruCollection } from '@/lib/mongodb';
+import { getKelasCollection, getGuruCollection } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
-
-const defaultDataKelas = [
-  { id: '1', kode: 'HAL-01A', nama: "Kelas 1A", program: "Murottal", wali: "Ustadz Ahmad, S.Pd.I", jumlah: 25, kapasitas: 25, ruangan: "Gedung Ula 101", status: "Aktif" },
-  { id: '2', kode: 'HAL-01B', nama: "Kelas 1B", program: "Murojaah", wali: "Ustadzah Fatimah, Lc", jumlah: 24, kapasitas: 25, ruangan: "Gedung Ula 102", status: "Aktif" },
-  { id: '3', kode: 'HAL-02A', nama: "Kelas 2A", program: "Murottal", wali: "Ustadz Umar", jumlah: 22, kapasitas: 25, ruangan: "Gedung Wustha 201", status: "Aktif" },
-  { id: '4', kode: 'HAL-03A', nama: "Kelas 3A", program: "Murojaah", wali: "Ustadzah Maryam, M.Ag", jumlah: 25, kapasitas: 25, ruangan: "Gedung Wustha 202", status: "Aktif" },
-  { id: '5', kode: 'HAL-05A', nama: "Kelas 5A", program: "Murottal", wali: "Ustadz Zulkifli, S.Th.I", jumlah: 25, kapasitas: 25, ruangan: "Gedung Ulya 301", status: "Aktif" },
-  { id: '6', kode: 'HAL-06A', nama: "Kelas 6A", program: "Tafsir", wali: "Ustadz Hasan Basri", jumlah: 20, kapasitas: 20, ruangan: "Gedung Ma'had Utama", status: "Aktif" },
-];
 
 export async function GET(request: Request) {
   try {
     const col = await getKelasCollection();
-
-    // Pastikan seeding hanya terjadi SEKALI seumur hidup database
-    try {
-      const settingsCol = await getSettingsCollection();
-      const seedRecord = await settingsCol.findOne({ key: 'kelas_seeded' });
-      if (!seedRecord) {
-        const count = await col.countDocuments();
-        if (count === 0) {
-          await col.insertMany(defaultDataKelas.map(k => ({ ...k, createdAt: new Date() })));
-        }
-        await settingsCol.insertOne({ key: 'kelas_seeded', seededAt: new Date() });
-      }
-    } catch {
-      // Abaikan jika settings gagal diakses
-    }
-
     const docs = await col.find({}).toArray();
     const seenIds = new Set<string>();
     const duplicateObjectIds: ObjectId[] = [];
@@ -130,8 +105,9 @@ export async function GET(request: Request) {
       status: d.status,
     }));
     return NextResponse.json({ success: true, data, source: 'mongodb' });
-  } catch {
-    return NextResponse.json({ success: true, data: defaultDataKelas, source: 'fallback' });
+  } catch (err: any) {
+    console.error('MongoDB GET Kelas error:', err?.message);
+    return NextResponse.json({ success: false, data: [], error: err?.message, source: 'mongodb' }, { status: 500 });
   }
 }
 
@@ -160,8 +136,9 @@ export async function POST(request: Request) {
       const col = await getKelasCollection();
       await col.insertOne(newKelas);
       return NextResponse.json({ success: true, data: newKelas, source: 'mongodb' });
-    } catch {
-      return NextResponse.json({ success: true, data: newKelas, source: 'fallback' });
+    } catch (dbErr: any) {
+      console.error('MongoDB POST Kelas error:', dbErr?.message);
+      return NextResponse.json({ success: false, error: dbErr?.message || 'Gagal menyimpan kelas ke database' }, { status: 500 });
     }
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
@@ -202,8 +179,9 @@ export async function PUT(request: Request) {
 
       await col.updateOne({ $or: orConditions }, { $set: updateData });
       return NextResponse.json({ success: true, source: 'mongodb' });
-    } catch {
-      return NextResponse.json({ success: true, source: 'fallback' });
+    } catch (dbErr: any) {
+      console.error('MongoDB PUT Kelas error:', dbErr?.message);
+      return NextResponse.json({ success: false, error: dbErr?.message || 'Gagal memperbarui kelas di database' }, { status: 500 });
     }
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message }, { status: 500 });

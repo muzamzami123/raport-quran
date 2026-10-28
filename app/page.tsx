@@ -21,9 +21,7 @@ import {
   ClassItem,
   EMPTY_ERROR_COUNTERS,
   getPredikat,
-  createDefaultUjianList,
-  categoriesData,
-  initialClassesData
+  categoriesData
 } from "./components/evaluationData";
 import { StudentsStepView, EvaluationFormView } from "./components/EvaluationViews";
 
@@ -405,12 +403,7 @@ export default function HomeGuruEvaluationPage() {
         setClassesList(mappedClasses);
       } catch (err) {
         console.warn("Gagal memuat data kelas dari database:", err);
-        setClassesList(
-          initialClassesData.map((cls) => ({
-            ...cls,
-            ujianList: createDefaultUjianList(cls.id, cls.santriList)
-          }))
-        );
+        setClassesList([]);
       } finally {
         setIsLoadingClasses(false);
       }
@@ -1016,7 +1009,19 @@ export default function HomeGuruEvaluationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fbfe] text-[#086288] flex flex-col font-sans selection:bg-[#97D7FF]/30 selection:text-[#086288]">
+    <div className="relative min-h-screen text-[#086288] flex flex-col font-sans selection:bg-[#97D7FF]/30 selection:text-[#086288]">
+      {/* Background Gedung Pesantren Ilmu Al-Qur'an */}
+      <div className="no-print fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+        <Image
+          src="/bg-app.jpg"
+          alt="Gedung Pesantren Ilmu Al-Qur'an"
+          fill
+          priority
+          className="object-cover object-center"
+        />
+        {/* Soft institutional overlay to maintain optimal readability and high contrast */}
+        <div className="absolute inset-0 bg-[#f8fbfe]/88 backdrop-blur-[2px]" />
+      </div>
       {/* ========================================================= */}
       {/* APP TOPBAR / HEADER FOR ASATIDZ                           */}
       {/* ========================================================= */}
@@ -1819,8 +1824,7 @@ export default function HomeGuruEvaluationPage() {
       <footer className="no-print mt-auto bg-white border-t border-zinc-200/80 py-4 px-4 sm:px-6 lg:px-8 text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-center sm:text-left">
           <p className="font-medium text-zinc-600">
-            &copy; 2026 <span className="font-semibold text-[#086288]">Raport Qur&apos;an Digital</span>{" "}
-            • Muharrik Al Quran Pesantren Ilmu Al-Qur&apos;an
+            &copy; 2026 <span className="font-semibold text-[#086288]">Muharrik Al Quran Pesantren Ilmu Al-Qur&apos;an</span>{" "}
           </p>
         </div>
       </footer>
