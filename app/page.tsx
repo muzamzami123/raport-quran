@@ -1009,7 +1009,7 @@ export default function HomeGuruEvaluationPage() {
   };
 
   return (
-    <div className="relative min-h-screen text-[#086288] flex flex-col font-sans selection:bg-[#97D7FF]/30 selection:text-[#086288]">
+    <div className="relative min-h-screen text-zinc-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-[#97D7FF]/30 selection:text-[#086288]">
       {/* Background Gedung Pesantren Ilmu Al-Qur'an */}
       <div className="no-print fixed inset-0 -z-10 pointer-events-none overflow-hidden">
         <Image
@@ -1020,12 +1020,12 @@ export default function HomeGuruEvaluationPage() {
           className="object-cover object-center"
         />
         {/* Soft institutional overlay to maintain optimal readability and high contrast */}
-        <div className="absolute inset-0 bg-[#f8fbfe]/88 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-[#f8fbfe]/88 dark:bg-zinc-950/92 backdrop-blur-[2px]" />
       </div>
       {/* ========================================================= */}
       {/* APP TOPBAR / HEADER FOR ASATIDZ                           */}
       {/* ========================================================= */}
-      <header className="no-print sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-zinc-200 shadow-xs">
+      <header className="no-print sticky top-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800 shadow-xs">
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3 min-h-14 sm:h-16 py-2 sm:py-0">
             {/* Brand Title */}
@@ -1048,17 +1048,17 @@ export default function HomeGuruEvaluationPage() {
                 onClick={() => handleNavigateStep("welcome")}
                 className="text-left group cursor-pointer min-w-0"
               >
-                <span className="font-bold text-sm sm:text-base text-zinc-900 group-hover:text-[#086288] transition-colors tracking-tight leading-tight block truncate">
+                <span className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 group-hover:text-[#086288] dark:group-hover:text-[#97D7FF] transition-colors tracking-tight leading-tight block truncate">
                   Raport Qur&apos;an Digital
                 </span>
-                <span className="text-[11px] text-zinc-500 font-medium leading-tight block truncate mt-0.5">
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium leading-tight block truncate mt-0.5">
                   Pesantren Ilmu Al-Qur&apos;an
                 </span>
               </button>
             </div>
 
             {/* Top Right Info */}
-            <div className="hidden sm:flex items-center text-xs text-zinc-500 font-medium shrink-0">
+            <div className="hidden sm:flex items-center text-xs text-zinc-500 dark:text-zinc-400 font-medium shrink-0">
               <span>Semester Ganjil 2026/2027</span>
             </div>
           </div>
@@ -1067,7 +1067,7 @@ export default function HomeGuruEvaluationPage() {
 
       {/* Global Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg bg-zinc-900 text-white text-xs font-medium shadow-lg flex items-center justify-between gap-3">
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg bg-zinc-900 dark:bg-zinc-800 border border-transparent dark:border-zinc-700 text-white text-xs font-medium shadow-lg flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{toastMessage}</span>
@@ -1090,7 +1090,7 @@ export default function HomeGuruEvaluationPage() {
         {/* ======================================================= */}
         {currentStep === "welcome" && (
           <div className="my-auto max-w-3xl mx-auto w-full py-16 sm:py-24 text-center space-y-7 animate-fade-in">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#086288] tracking-tight leading-snug">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#086288] dark:text-[#97D7FF] tracking-tight leading-snug">
               Ahlan Wa Sahlan Guru <span className="whitespace-nowrap">Al-Qur&apos;an</span>
             </h1>
 
@@ -1111,9 +1111,9 @@ export default function HomeGuruEvaluationPage() {
         {/* ======================================================= */}
         {currentStep === "category" && (
           <div className="space-y-6 animate-fade-in">
-            <div className="border-b border-zinc-200/80 pb-4">
-              <h2 className="text-2xl font-bold text-zinc-900 tracking-tight mt-1 flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#086288]" />
+            <div className="border-b border-zinc-200/80 dark:border-zinc-800 pb-4">
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight mt-1 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#086288] dark:text-[#97D7FF]" />
                 Pilih Kategori Program
               </h2>
             </div>
@@ -1124,12 +1124,12 @@ export default function HomeGuruEvaluationPage() {
                 <div
                   key={category.id}
                   onClick={() => handleSelectCategory(category.id)}
-                  className="group bg-white p-6 rounded-xl border border-zinc-200 hover:border-[#086288] hover:bg-[#f8fbfe] hover:shadow-xs transition-all cursor-pointer flex items-center justify-between"
+                  className="group bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-[#086288] dark:hover:border-[#97D7FF] hover:bg-[#f8fbfe] dark:hover:bg-zinc-800/80 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between"
                 >
-                  <h3 className="text-xl font-bold text-zinc-900 group-hover:text-[#086288] transition-colors">
+                  <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#086288] dark:group-hover:text-[#97D7FF] transition-colors">
                     {category.name}
                   </h3>
-                  <ArrowRight className="w-5 h-5 text-zinc-300 group-hover:text-[#086288] group-hover:translate-x-1 transition-all" />
+                  <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600 group-hover:text-[#086288] dark:group-hover:text-[#97D7FF] group-hover:translate-x-1 transition-all" />
                 </div>
               ))}
             </div>
@@ -1141,20 +1141,20 @@ export default function HomeGuruEvaluationPage() {
         {/* ======================================================= */}
         {currentStep === "class" && selectedCategory && (
           <div className="space-y-6 animate-fade-in">
-            <div className="border-b border-zinc-200/80 pb-4">
+            <div className="border-b border-zinc-200/80 dark:border-zinc-800 pb-4">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleNavigateStep("category")}
-                  className="p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:text-[#086288] hover:bg-zinc-50 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-[#086288] dark:hover:text-[#97D7FF] hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                   title="Kembali ke Kategori"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#086288]">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#086288] dark:text-[#97D7FF]">
                   Program: {selectedCategory.name}
                 </span>
               </div>
-              <h2 className="text-2xl font-bold text-zinc-900 tracking-tight mt-1">
+              <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight mt-1">
                 Pilih Kelas
               </h2>
             </div>
@@ -1165,10 +1165,10 @@ export default function HomeGuruEvaluationPage() {
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div
                     key={i}
-                    className="bg-white p-6 rounded-xl border border-zinc-200 flex items-center justify-between gap-3 animate-pulse"
+                    className="bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 animate-pulse"
                   >
-                    <div className="h-6 bg-zinc-200 rounded-md w-28"></div>
-                    <div className="w-5 h-5 bg-zinc-200 rounded-full shrink-0"></div>
+                    <div className="h-6 bg-zinc-200 dark:bg-zinc-800 rounded-md w-28"></div>
+                    <div className="w-5 h-5 bg-zinc-200 dark:bg-zinc-800 rounded-full shrink-0"></div>
                   </div>
                 ))}
               </div>
@@ -1178,17 +1178,17 @@ export default function HomeGuruEvaluationPage() {
                   <div
                     key={cls.id}
                     onClick={() => handleSelectClass(cls.id)}
-                    className="group bg-white p-6 rounded-xl border border-zinc-200 hover:border-[#086288] hover:bg-[#f8fbfe] hover:shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3"
+                    className="group bg-white dark:bg-zinc-900 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-[#086288] dark:hover:border-[#97D7FF] hover:bg-[#f8fbfe] dark:hover:bg-zinc-800/80 hover:shadow-xs transition-all cursor-pointer flex items-center justify-between gap-3"
                   >
-                    <h3 className="text-lg font-bold text-zinc-900 group-hover:text-[#086288] transition-colors">
+                    <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-[#086288] dark:group-hover:text-[#97D7FF] transition-colors">
                       {cls.name}
                     </h3>
-                    <ArrowRight className="w-5 h-5 text-zinc-300 group-hover:text-[#086288] group-hover:translate-x-1 transition-all shrink-0" />
+                    <ArrowRight className="w-5 h-5 text-zinc-300 dark:text-zinc-600 group-hover:text-[#086288] dark:group-hover:text-[#97D7FF] group-hover:translate-x-1 transition-all shrink-0" />
                   </div>
                 ))}
               </div>
             ) : !isLoadingClasses ? (
-              <div className="bg-white rounded-xl border border-zinc-200 p-10 text-center text-xs text-zinc-500">
+              <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-10 text-center text-xs text-zinc-500 dark:text-zinc-400">
                 Belum ada kelas pada program {selectedCategory.name} di basis data.
               </div>
             ) : null}
@@ -1203,38 +1203,38 @@ export default function HomeGuruEvaluationPage() {
             currentStep === "students" ||
             currentStep === "evaluation") && (
             <div className="space-y-4 sm:space-y-5 animate-pulse">
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200">
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-zinc-800">
                 <div className="flex items-center gap-2.5 sm:gap-3">
-                  <div className="w-8 h-8 bg-zinc-200 rounded-md"></div>
+                  <div className="w-8 h-8 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
                   <div className="space-y-1.5">
-                    <div className="h-5 w-32 bg-zinc-200 rounded-md"></div>
-                    <div className="h-3.5 w-48 bg-zinc-100 rounded-md"></div>
+                    <div className="h-5 w-32 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
+                    <div className="h-3.5 w-48 bg-zinc-100 dark:bg-zinc-800/60 rounded-md"></div>
                   </div>
                 </div>
-                <div className="h-8 w-28 bg-zinc-200 rounded-md"></div>
+                <div className="h-8 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-md"></div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
                 <div className="lg:col-span-5 space-y-4 sm:space-y-5">
-                  <div className="bg-white rounded-lg border border-zinc-200 p-4 space-y-3">
-                    <div className="h-4 w-28 bg-zinc-200 rounded"></div>
-                    <div className="h-16 bg-zinc-100 rounded"></div>
+                  <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3">
+                    <div className="h-4 w-28 bg-zinc-200 dark:bg-zinc-800 rounded"></div>
+                    <div className="h-16 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
                   </div>
-                  <div className="bg-white rounded-lg border border-zinc-200 p-4 space-y-3">
-                    <div className="h-4 w-24 bg-zinc-200 rounded"></div>
+                  <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3">
+                    <div className="h-4 w-24 bg-zinc-200 dark:bg-zinc-800 rounded"></div>
                     <div className="space-y-2">
-                      <div className="h-8 bg-zinc-100 rounded"></div>
-                      <div className="h-8 bg-zinc-100 rounded"></div>
-                      <div className="h-8 bg-zinc-100 rounded"></div>
+                      <div className="h-8 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
+                      <div className="h-8 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
+                      <div className="h-8 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
                     </div>
                   </div>
                 </div>
-                <div className="lg:col-span-7 bg-white rounded-lg border border-zinc-200 p-4 space-y-3">
-                  <div className="h-4 w-36 bg-zinc-200 rounded"></div>
+                <div className="lg:col-span-7 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3">
+                  <div className="h-4 w-36 bg-zinc-200 dark:bg-zinc-800 rounded"></div>
                   <div className="space-y-2">
-                    <div className="h-12 bg-zinc-100 rounded"></div>
-                    <div className="h-12 bg-zinc-100 rounded"></div>
-                    <div className="h-12 bg-zinc-100 rounded"></div>
+                    <div className="h-12 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
+                    <div className="h-12 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
+                    <div className="h-12 bg-zinc-100 dark:bg-zinc-800/60 rounded"></div>
                   </div>
                 </div>
               </div>
@@ -1247,20 +1247,20 @@ export default function HomeGuruEvaluationPage() {
         {currentStep === "exams" && selectedClass && (
           <div className="space-y-4 sm:space-y-5 animate-fade-in">
             {/* Header & Actions */}
-            <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                 <button
                   onClick={() => handleNavigateStep("class")}
-                  className="p-1.5 rounded-md border border-zinc-300 hover:bg-zinc-50 bg-white text-zinc-700 transition-colors flex items-center justify-center cursor-pointer shrink-0"
+                  className="p-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 transition-colors flex items-center justify-center cursor-pointer shrink-0"
                   title="Kembali ke Pilih Kelas"
                 >
-                  <ArrowLeft className="w-4 h-4 text-zinc-600" />
+                  <ArrowLeft className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                 </button>
                 <div className="min-w-0">
-                  <h1 className="text-base sm:text-xl font-bold text-zinc-900 tracking-tight truncate">
+                  <h1 className="text-base sm:text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">
                     Kelas {selectedClass.name}
                   </h1>
-                  <p className="text-[11px] sm:text-xs text-zinc-500 mt-0.5 truncate">
+                  <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
                     {selectedClass.target} • {selectedClass.santriList.length} santri •{" "}
                     {(selectedClass.ujianList || []).length} sesi
                   </p>
@@ -1282,14 +1282,14 @@ export default function HomeGuruEvaluationPage() {
             </div>
 
             {/* Navigasi 2 Tab khusus Mode Mobile: Data Santri Kelas & Ujian */}
-            <div className="lg:hidden grid grid-cols-2 p-1 bg-zinc-100 rounded-lg border border-zinc-200">
+            <div className="lg:hidden grid grid-cols-2 p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg border border-zinc-200 dark:border-zinc-700">
               <button
                 type="button"
                 onClick={() => setMobileExamStepTab("santri")}
                 className={`py-2 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
                   mobileExamStepTab === "santri"
-                    ? "bg-white text-[#086288] shadow-xs border border-zinc-200/80"
-                    : "text-zinc-600 hover:text-zinc-900"
+                    ? "bg-white dark:bg-zinc-700 text-[#086288] dark:text-[#97D7FF] shadow-xs border border-zinc-200/80 dark:border-zinc-600"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                 }`}
               >
                 Data Santri Kelas
@@ -1299,8 +1299,8 @@ export default function HomeGuruEvaluationPage() {
                 onClick={() => setMobileExamStepTab("ujian")}
                 className={`py-2 px-3 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center justify-center ${
                   mobileExamStepTab === "ujian"
-                    ? "bg-white text-[#086288] shadow-xs border border-zinc-200/80"
-                    : "text-zinc-600 hover:text-zinc-900"
+                    ? "bg-white dark:bg-zinc-700 text-[#086288] dark:text-[#97D7FF] shadow-xs border border-zinc-200/80 dark:border-zinc-600"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                 }`}
               >
                 Ujian
@@ -1316,37 +1316,37 @@ export default function HomeGuruEvaluationPage() {
                 } lg:block lg:col-span-5 space-y-4 sm:space-y-5`}
               >
                 {/* Kartu Informasi Kelas */}
-                <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
-                  <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-zinc-50/60">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                  <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/50">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                       Informasi Kelas
                     </h2>
                   </div>
-                  <div className="divide-y divide-zinc-200 text-xs">
-                    <div className="grid grid-cols-3 divide-x divide-zinc-200 bg-white">
+                  <div className="divide-y divide-zinc-200 dark:divide-zinc-800 text-xs">
+                    <div className="grid grid-cols-3 divide-x divide-zinc-200 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
                       <div className="px-3 py-2">
-                        <div className="text-[10px] text-zinc-500">Kelas</div>
-                        <div className="font-semibold text-zinc-900 mt-0.5 truncate">
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Kelas</div>
+                        <div className="font-semibold text-zinc-900 dark:text-zinc-100 mt-0.5 truncate">
                           {selectedClass.name}
                         </div>
                       </div>
                       <div className="px-3 py-2">
-                        <div className="text-[10px] text-zinc-500">Program</div>
-                        <div className="font-medium text-zinc-900 mt-0.5 truncate">
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Program</div>
+                        <div className="font-medium text-zinc-900 dark:text-zinc-100 mt-0.5 truncate">
                           {selectedClass.target}
                         </div>
                       </div>
                       <div className="px-3 py-2">
-                        <div className="text-[10px] text-zinc-500">Total Tashih</div>
-                        <div className="font-semibold text-[#086288] mt-0.5 tabular-nums">
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400">Total Tashih</div>
+                        <div className="font-semibold text-[#086288] dark:text-[#97D7FF] mt-0.5 tabular-nums">
                           {(selectedClass.ujianList || []).length} kali
                         </div>
                       </div>
                     </div>
                     <div className="px-3.5 sm:px-4 py-2.5 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-zinc-500 text-[11px]">Guru Pengajar</span>
-                        <span className="text-zinc-400 text-[11px]">
+                        <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">Guru Pengajar</span>
+                        <span className="text-zinc-400 dark:text-zinc-500 text-[11px]">
                           {selectedClass.waliList && selectedClass.waliList.length > 0
                             ? `${selectedClass.waliList.length} pengajar`
                             : ""}
@@ -1357,9 +1357,9 @@ export default function HomeGuruEvaluationPage() {
                           {selectedClass.waliList.map((guru, idx) => (
                             <div
                               key={guru}
-                              className="flex items-start gap-1.5 px-2.5 py-1 rounded bg-zinc-50 border border-zinc-200/70 text-zinc-900 font-medium text-[11px] sm:text-xs"
+                              className="flex items-start gap-1.5 px-2.5 py-1 rounded bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/70 dark:border-zinc-700/60 text-zinc-900 dark:text-zinc-100 font-medium text-[11px] sm:text-xs"
                             >
-                              <span className="text-zinc-400 tabular-nums shrink-0">
+                              <span className="text-zinc-400 dark:text-zinc-500 tabular-nums shrink-0">
                                 {idx + 1}.
                               </span>
                               <span className="leading-snug">{guru}</span>
@@ -1367,7 +1367,7 @@ export default function HomeGuruEvaluationPage() {
                           ))}
                         </div>
                       ) : (
-                        <div className="font-medium text-zinc-900">
+                        <div className="font-medium text-zinc-900 dark:text-zinc-100">
                           {selectedClass.wali || "-"}
                         </div>
                       )}
@@ -1376,13 +1376,13 @@ export default function HomeGuruEvaluationPage() {
                     {/* Input Materi Terakhir Kelas (Patokan Semua Santri) */}
                     <form
                       onSubmit={handleSaveClassMateri}
-                      className="px-3.5 sm:px-4 py-2.5 bg-zinc-50/40 space-y-1.5"
+                      className="px-3.5 sm:px-4 py-2.5 bg-zinc-50/40 dark:bg-zinc-800/30 space-y-1.5"
                     >
                       <div className="flex items-center justify-between">
-                        <label className="text-zinc-600 font-semibold text-[11px]">
+                        <label className="text-zinc-600 dark:text-zinc-300 font-semibold text-[11px]">
                           Materi Terakhir Kelas
                         </label>
-                        <span className="text-[10px] text-zinc-400">
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
                           Patokan seluruh santri
                         </span>
                       </div>
@@ -1392,7 +1392,7 @@ export default function HomeGuruEvaluationPage() {
                           value={classMateriInput}
                           onChange={(e) => setClassMateriInput(e.target.value)}
                           placeholder="Contoh: JUZ 16"
-                          className="w-full px-2.5 py-1.5 rounded-md border border-zinc-300 bg-white text-zinc-900 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288]"
+                          className="w-full px-2.5 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288]"
                         />
                         <button
                           type="submit"
@@ -1407,28 +1407,28 @@ export default function HomeGuruEvaluationPage() {
                 </div>
 
                 {/* Kartu Daftar Santri di Kelas Ini */}
-                <div className="bg-white rounded-lg border border-zinc-200 overflow-hidden">
-                  <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-zinc-50/60 flex items-center justify-between">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                  <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/50 flex items-center justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                       Daftar Santri
                     </h2>
-                    <span className="text-xs text-zinc-500 tabular-nums">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                       {selectedClass.santriList.length} santri
                     </span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-medium">
+                      <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400 font-medium">
                         <tr>
                           <th className="px-3 py-2 w-9 text-center">No</th>
                           <th className="px-3 py-2">Nama Santri</th>
                           <th className="px-3 py-2 text-right w-24">Tashih</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-zinc-200 text-zinc-700">
+                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-700 dark:text-zinc-300">
                         {selectedClass.santriList.length === 0 ? (
                           <tr>
-                            <td colSpan={3} className="px-4 py-6 text-center text-zinc-400">
+                            <td colSpan={3} className="px-4 py-6 text-center text-zinc-400 dark:text-zinc-500">
                               Belum ada santri terdaftar di kelas ini.
                             </td>
                           </tr>
@@ -1442,14 +1442,14 @@ export default function HomeGuruEvaluationPage() {
                             ).length;
 
                             return (
-                              <tr key={santri.id} className="hover:bg-zinc-50/80">
-                                <td className="px-3 py-2 text-center text-zinc-400 tabular-nums">
+                              <tr key={santri.id} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors">
+                                <td className="px-3 py-2 text-center text-zinc-400 dark:text-zinc-500 tabular-nums">
                                   {idx + 1}
                                 </td>
-                                <td className="px-3 py-2 font-medium text-zinc-900">
+                                <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                                   {santri.nama}
                                 </td>
-                                <td className="px-3 py-2 text-right tabular-nums text-zinc-600 whitespace-nowrap">
+                                <td className="px-3 py-2 text-right tabular-nums text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
                                   {completedSessions}/{totalSessions} ujian
                                 </td>
                               </tr>
@@ -1466,19 +1466,19 @@ export default function HomeGuruEvaluationPage() {
               <div
                 className={`${
                   mobileExamStepTab === "ujian" ? "block" : "hidden"
-                } lg:block lg:col-span-7 bg-white rounded-lg border border-zinc-200 overflow-hidden`}
+                } lg:block lg:col-span-7 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden`}
               >
-                <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 bg-zinc-50/60 flex items-center justify-between">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700">
+                <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/50 flex items-center justify-between">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                     Jadwal Ujian / Tashih
                   </h2>
-                  <span className="text-xs text-zinc-500 tabular-nums">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                     Total: {(selectedClass.ujianList || []).length} sesi
                   </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-semibold text-[11px]">
+                    <thead className="bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold text-[11px]">
                       <tr>
                         <th className="px-3 sm:px-4 py-2.5 text-center w-9 sm:w-12">No</th>
                         <th className="px-3 sm:px-4 py-2.5">
@@ -1494,10 +1494,10 @@ export default function HomeGuruEvaluationPage() {
                         <th className="px-3 sm:px-4 py-2.5 text-right w-28 sm:w-36">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-200">
+                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                       {(selectedClass.ujianList || []).length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">
+                          <td colSpan={5} className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400">
                             Belum ada jadwal ujian.
                           </td>
                         </tr>
@@ -1513,38 +1513,38 @@ export default function HomeGuruEvaluationPage() {
                             <tr
                               key={ujian.id}
                               onClick={() => handleEnterExam(ujian.id)}
-                              className="hover:bg-zinc-50/80 transition-colors cursor-pointer"
+                              className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
                             >
-                              <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-center text-zinc-500 tabular-nums">
+                              <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-center text-zinc-500 dark:text-zinc-400 tabular-nums">
                                 {index + 1}
                               </td>
                               <td className="px-3 sm:px-4 py-2.5 sm:py-3">
-                                <div className="font-semibold text-zinc-900 leading-snug">
+                                <div className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                                   {ujian.tanggalUjian}
                                 </div>
-                                <div className="text-[11px] text-zinc-500 mt-0.5 leading-snug">
+                                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
                                   {ujian.namaUjian}
                                 </div>
                                 <div className="sm:hidden flex items-center gap-1.5 text-[11px] mt-1 tabular-nums">
-                                  <span className="text-zinc-700 font-medium">
+                                  <span className="text-zinc-700 dark:text-zinc-300 font-medium">
                                     {selesai} selesai
                                   </span>
-                                  <span className="text-zinc-300">•</span>
+                                  <span className="text-zinc-300 dark:text-zinc-600">•</span>
                                   {belum > 0 ? (
-                                    <span className="text-zinc-500">{belum} belum</span>
+                                    <span className="text-zinc-500 dark:text-zinc-400">{belum} belum</span>
                                   ) : (
-                                    <span className="text-emerald-700 font-medium">Lengkap</span>
+                                    <span className="text-emerald-700 dark:text-emerald-400 font-medium">Lengkap</span>
                                   )}
                                 </div>
                               </td>
-                              <td className="hidden sm:table-cell px-3 py-3 text-center text-zinc-700 font-medium tabular-nums">
+                              <td className="hidden sm:table-cell px-3 py-3 text-center text-zinc-700 dark:text-zinc-300 font-medium tabular-nums">
                                 {selesai} santri
                               </td>
                               <td className="hidden sm:table-cell px-3 py-3 text-center tabular-nums">
                                 {belum > 0 ? (
-                                  <span className="text-zinc-600">{belum} santri</span>
+                                  <span className="text-zinc-600 dark:text-zinc-400">{belum} santri</span>
                                 ) : (
-                                  <span className="text-emerald-700 font-medium">Selesai</span>
+                                  <span className="text-emerald-700 dark:text-emerald-400 font-medium">Selesai</span>
                                 )}
                               </td>
                               <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right">
@@ -1555,7 +1555,7 @@ export default function HomeGuruEvaluationPage() {
                                       e.stopPropagation();
                                       handleOpenEditUjian(ujian);
                                     }}
-                                    className="p-1.5 rounded-md border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer"
+                                    className="p-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 transition-colors cursor-pointer"
                                     title="Edit Nama / Tanggal Ujian"
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
@@ -1566,7 +1566,7 @@ export default function HomeGuruEvaluationPage() {
                                       e.stopPropagation();
                                       handleOpenDeleteUjian(ujian);
                                     }}
-                                    className="p-1.5 rounded-md border border-zinc-200 hover:border-rose-200 hover:bg-rose-50 text-zinc-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                    className="p-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 hover:border-rose-200 dark:hover:border-rose-800/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                                     title="Hapus Sesi Ujian"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -1596,13 +1596,13 @@ export default function HomeGuruEvaluationPage() {
 
             {/* Modal Tambah Jadwal Ujian */}
             {isAddUjianOpen && (
-              <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg max-w-md w-full border border-zinc-200 shadow-lg p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                    <h3 className="text-sm font-bold text-zinc-900">Tambah Jadwal Ujian</h3>
+              <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/60 flex items-center justify-center p-4">
+                <div className="bg-white dark:bg-zinc-900 rounded-lg max-w-md w-full border border-zinc-200 dark:border-zinc-800 shadow-lg p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Tambah Jadwal Ujian</h3>
                     <button
                       onClick={() => setIsAddUjianOpen(false)}
-                      className="w-7 h-7 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 text-base cursor-pointer"
+                      className="w-7 h-7 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-base cursor-pointer"
                     >
                       &times;
                     </button>
@@ -1610,7 +1610,7 @@ export default function HomeGuruEvaluationPage() {
 
                   <form onSubmit={handleAddUjianSession} className="space-y-3.5 text-xs">
                     <div>
-                      <label className="block font-semibold text-zinc-700 mb-1">
+                      <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                         Tanggal Ujian
                       </label>
                       <input
@@ -1618,17 +1618,17 @@ export default function HomeGuruEvaluationPage() {
                         required
                         value={newTanggalUjian}
                         onChange={(e) => setNewTanggalUjian(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white cursor-pointer"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer"
                       />
                       {newTanggalUjian && (
-                        <p className="text-[11px] text-[#086288] font-medium mt-1">
+                        <p className="text-[11px] text-[#086288] dark:text-[#97D7FF] font-medium mt-1">
                           {formatTanggalIndo(newTanggalUjian)}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block font-semibold text-zinc-700 mb-1">
+                      <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                         Nama Ujian
                       </label>
                       <input
@@ -1637,15 +1637,15 @@ export default function HomeGuruEvaluationPage() {
                         value={newNamaUjian}
                         onChange={(e) => setNewNamaUjian(e.target.value)}
                         placeholder="Contoh: Ujian Tasmi' Juz 30"
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                       />
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                       <button
                         type="button"
                         onClick={() => setIsAddUjianOpen(false)}
-                        className="px-3 py-1.5 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-medium cursor-pointer"
+                        className="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-medium cursor-pointer"
                       >
                         Batal
                       </button>
@@ -1663,14 +1663,14 @@ export default function HomeGuruEvaluationPage() {
 
             {/* Modal Edit Jadwal & Nama Ujian */}
             {isEditUjianOpen && (
-              <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg max-w-md w-full border border-zinc-200 shadow-lg p-5 space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                    <h3 className="text-sm font-bold text-zinc-900">Edit Jadwal &amp; Nama Ujian</h3>
+              <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/60 flex items-center justify-center p-4">
+                <div className="bg-white dark:bg-zinc-900 rounded-lg max-w-md w-full border border-zinc-200 dark:border-zinc-800 shadow-lg p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Edit Jadwal &amp; Nama Ujian</h3>
                     <button
                       type="button"
                       onClick={() => setIsEditUjianOpen(false)}
-                      className="w-7 h-7 rounded hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 text-base cursor-pointer"
+                      className="w-7 h-7 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 text-base cursor-pointer"
                     >
                       &times;
                     </button>
@@ -1678,7 +1678,7 @@ export default function HomeGuruEvaluationPage() {
 
                   <form onSubmit={handleSaveEditUjian} className="space-y-3.5 text-xs">
                     <div>
-                      <label className="block font-semibold text-zinc-700 mb-1">
+                      <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                         Tanggal Ujian
                       </label>
                       <input
@@ -1686,17 +1686,17 @@ export default function HomeGuruEvaluationPage() {
                         required
                         value={editTanggalUjian}
                         onChange={(e) => setEditTanggalUjian(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white cursor-pointer"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 cursor-pointer"
                       />
                       {editTanggalUjian && (
-                        <p className="text-[11px] text-[#086288] font-medium mt-1">
+                        <p className="text-[11px] text-[#086288] dark:text-[#97D7FF] font-medium mt-1">
                           {formatTanggalIndo(editTanggalUjian)}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block font-semibold text-zinc-700 mb-1">
+                      <label className="block font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                         Nama Ujian
                       </label>
                       <input
@@ -1705,15 +1705,15 @@ export default function HomeGuruEvaluationPage() {
                         value={editNamaUjian}
                         onChange={(e) => setEditNamaUjian(e.target.value)}
                         placeholder="Contoh: Tasmi' Ujian Utama"
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white"
+                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 text-xs focus:outline-none focus:ring-1 focus:ring-[#086288] focus:border-[#086288] bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                       />
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                       <button
                         type="button"
                         onClick={() => setIsEditUjianOpen(false)}
-                        className="px-3 py-1.5 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-medium cursor-pointer"
+                        className="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-medium cursor-pointer"
                       >
                         Batal
                       </button>
@@ -1732,30 +1732,30 @@ export default function HomeGuruEvaluationPage() {
 
             {/* Modal Konfirmasi Hapus Jadwal Ujian */}
             {isDeleteUjianOpen && deleteUjianSession && (
-              <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg max-w-sm w-full border border-zinc-200 shadow-lg p-5 space-y-4">
+              <div className="fixed inset-0 z-50 bg-black/40 dark:bg-black/60 flex items-center justify-center p-4">
+                <div className="bg-white dark:bg-zinc-900 rounded-lg max-w-sm w-full border border-zinc-200 dark:border-zinc-800 shadow-lg p-5 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                    <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-100 dark:border-rose-900/40">
                       <Trash2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-zinc-900">Hapus Sesi Ujian</h3>
-                      <p className="text-[11px] text-zinc-500 mt-0.5">Konfirmasi penghapusan</p>
+                      <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Hapus Sesi Ujian</h3>
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">Konfirmasi penghapusan</p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-zinc-600 leading-relaxed">
-                    Apakah Anda yakin ingin menghapus sesi ujian <strong className="text-zinc-900 font-semibold">{deleteUjianSession.namaUjian}</strong> ({deleteUjianSession.tanggalUjian})? Seluruh riwayat dan data penilaian santri pada sesi ini akan ikut terhapus.
+                  <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                    Apakah Anda yakin ingin menghapus sesi ujian <strong className="text-zinc-900 dark:text-zinc-100 font-semibold">{deleteUjianSession.namaUjian}</strong> ({deleteUjianSession.tanggalUjian})? Seluruh riwayat dan data penilaian santri pada sesi ini akan ikut terhapus.
                   </p>
 
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
                     <button
                       type="button"
                       onClick={() => {
                         setIsDeleteUjianOpen(false);
                         setDeleteUjianSession(null);
                       }}
-                      className="px-3 py-1.5 rounded-md border border-zinc-300 hover:bg-zinc-100 text-zinc-700 text-xs font-medium cursor-pointer"
+                      className="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-medium cursor-pointer"
                     >
                       Batal
                     </button>
@@ -1821,10 +1821,10 @@ export default function HomeGuruEvaluationPage() {
       {/* ========================================================= */}
       {/* FOOTER                                                    */}
       {/* ========================================================= */}
-      <footer className="no-print mt-auto bg-white border-t border-zinc-200/80 py-4 px-4 sm:px-6 lg:px-8 text-xs text-zinc-500">
+      <footer className="no-print mt-auto bg-white dark:bg-zinc-900/95 border-t border-zinc-200/80 dark:border-zinc-800 py-4 px-4 sm:px-6 lg:px-8 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2.5 text-center sm:text-left">
-          <p className="font-medium text-zinc-600">
-            &copy; 2026 <span className="font-semibold text-[#086288]">Muharrik Al Quran Pesantren Ilmu Al-Qur&apos;an</span>{" "}
+          <p className="font-medium text-zinc-600 dark:text-zinc-400">
+            &copy; 2026 <span className="font-semibold text-[#086288] dark:text-[#97D7FF]">Muharrik Al Quran Pesantren Ilmu Al-Qur&apos;an</span>{" "}
           </p>
         </div>
       </footer>
